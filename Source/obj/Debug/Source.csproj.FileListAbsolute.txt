@@ -1,0 +1,6 @@
+F:\New folder\New folder\[SS] ProjectSAL\Source\obj\Debug\Source.csprojResolveAssemblyReference.cache
+F:\New folder\New folder\[SS] ProjectSAL\Assemblies\SourceAssembly.dll
+F:\New folder\New folder\[SS] ProjectSAL\Source\obj\Debug\SourceAssembly.dll
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\[SS] ProjectSAL\Assemblies\SourceAssembly.dll
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\[SS] ProjectSAL\Source\obj\Debug\Source.csprojResolveAssemblyReference.cache
+C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\[SS] ProjectSAL\Source\obj\Debug\SourceAssembly.dll
