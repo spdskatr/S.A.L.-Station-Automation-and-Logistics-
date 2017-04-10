@@ -63,6 +63,15 @@ namespace ProjectSAL
             }
             return basenum;
         }
+        public static T makeDuplicateObject<T>(this T obj)
+        {
+            var newObj = Activator.CreateInstance(obj.GetType());
+            foreach (var field in obj.GetType().GetFields())
+            {
+                newObj.GetType().GetFields().ToList().Find(f => f.Name == field.Name).SetValue(newObj, field.GetValue(obj));
+            }
+            return (T)newObj;
+        }
     }
     /// <summary>
     /// Programmer trick to save IngredientCount.

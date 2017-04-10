@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-	<name>Project S.A.L.: Station Automation and Logistics</name>
+	<name>S.A.L.: Auto-crafters</name>
 	<author>Spdskatr</author>
 	<targetVersion>0.16.1393</targetVersion>
-	<description>Project S.A.L.: Station Automation and Logistics\n\nS.A.L. is a RimWorld modding project that hopes to make most jobs of the colony doable without colonist interaction.</description>
+	<description>Project S.A.L.: Station Automation and Logistics\n\nS.A.L. is a RimWorld modding project that hopes to make most crafting jobs of the colony doable without colonist interaction.</description>
 </ModMetaData>

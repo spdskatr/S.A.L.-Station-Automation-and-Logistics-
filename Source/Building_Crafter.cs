@@ -26,6 +26,7 @@ using RimWorld;
  * Sort out problem with nutrition/cooking--------DONE
  * Eject items in thingRecord if deconstructed----DONE
  * Edit defs: Not forbiddable, flickable----------DONE
+ * File to C# 5.0 (No errors with SharpDevelop)---DONE
  * */
 namespace ProjectSAL
 {
@@ -42,25 +43,23 @@ namespace ProjectSAL
         public Pawn buildingPawn;
         [Unsaved]
         public Sustainer sustainer;
-        public IntVec3 outputSlot
-        {
-            get
-            {
-                return Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
-            }
-        }
 
-        public IntVec3 inputSlot
-        {
-            get
-            {
-                return Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
-            }
-        }
+		public IntVec3 outputSlot
+		{
+			get
+			{
+				return Position + GenAdj.CardinalDirections[0].RotatedBy(this.rotOutput);
+			}
+		}
 
-        /// <summary>
-        /// Gets next items in output slot for filtering.
-        /// </summary>
+		public IntVec3 inputSlot
+		{
+			get
+			{
+				return Position + GenAdj.CardinalDirections[0].RotatedBy(this.rotInput);
+			}
+		}
+
         public List<Thing> nextItems
         {
             get
@@ -75,13 +74,13 @@ namespace ProjectSAL
             }
         }
 
-        public IntVec3 workTableCell
-        {
-            get
-            {
-                return Position + GenAdj.CardinalDirections[Rotation.AsInt];
-            }
-        }
+		public IntVec3 workTableCell
+		{
+			get
+			{
+				return Position + GenAdj.CardinalDirections[base.Rotation.AsInt];
+			}
+		}
 
         public Building_WorkTable workTable
         {
@@ -92,54 +91,54 @@ namespace ProjectSAL
             }
         }
 
-        public BillStack billStack
-        {
-            get
-            {
-                return workTable == null ? null : workTable.BillStack;
-            }
+		public BillStack billStack
+		{
+			get
+			{
+				return workTable == null ? null : workTable.BillStack;
+			}
+		}
+
+		protected bool OutputSlotOccupied
+		{
+			get
+			{
+				return outputSlot.GetFirstItem(base.Map) != null || outputSlot.Impassable(base.Map);
+			}
+		}
+        
+        protected bool shouldDoWork 
+		{
+			get
+			{
+				return currentRecipe != null && ingredients.Any() && !ingredients.Any(ingredient => ingredient.count > 0);
+			}
         }
         
-        protected bool OutputSlotOccupied
-        {
-            get
-            {
-                return outputSlot.GetFirstItem(Map) != null || outputSlot.Impassable(Map);
-            }
-        }
-        
-        protected bool shouldDoWork
-        {
-            get
-            {
-                return currentRecipe != null && ingredients.Any() && !ingredients.Any(ingredient => ingredient.count > 0);
-            }
-        }
-        
-        protected bool shouldStartBill
-        {
-            get
-            {
-                return currentRecipe == null && billStack != null && billStack.AnyShouldDoNow;
-            }
-        }
-        
-        protected bool workDone
-        {
-            get
-            {
-                return currentRecipe != null && shouldDoWork && (int)workLeft == 0;
-            }
-        }
-        
-        protected SoundDef soundOfCurrentRecipe
-        {
-            get
-            {
-                return currentRecipe == null ? null : currentRecipe.soundWorking;
-            }
-        }
-        
+		protected bool shouldStartBill
+		{
+			get
+			{
+				return this.currentRecipe == null && billStack != null && billStack.AnyShouldDoNow;
+			}
+		}
+
+		protected bool workDone
+		{
+			get
+			{
+				return currentRecipe != null && shouldDoWork && (int)workLeft == 0;
+			}
+		}
+
+		protected SoundDef soundOfCurrentRecipe
+		{
+			get
+			{
+				return currentRecipe == null ? null : currentRecipe.soundWorking;
+			}
+		}
+		
         protected bool workTableisReservedByOther
         {
         	get
@@ -153,14 +152,22 @@ namespace ProjectSAL
         /// <summary>
         /// If worktable is reserved by someone else, or dependent on power and has no power, return false
         /// </summary>
-        protected bool workTableIsDisabled
-        {
-            get
-            {
-                return workTable != null && workTableisReservedByOther && workTable.GetComp<CompPowerTrader>() != null && !workTable.GetComp<CompPowerTrader>().PowerOn;
-            }
-        }
-        
+		protected bool workTableIsDisabled
+		{
+			get
+			{
+				return workTable != null && this.workTableisReservedByOther && workTableIsPoweredOff;
+			}
+		}
+		
+		protected bool workTableIsPoweredOff
+		{
+			get
+			{
+				return (workTable.GetComp<CompPowerTrader>() != null && !workTable.GetComp<CompPowerTrader>().PowerOn) || (workTable.GetComp<CompBreakdownable>() != null && workTable.GetComp<CompBreakdownable>().BrokenDown);
+			}
+		}
+
         //Constructors go here if needed
         
 		public override void SpawnSetup(Map map)
@@ -171,7 +178,16 @@ namespace ProjectSAL
                 doPawn();
                 ProjectSAL_Utilities.Message("made new pawn.", 3);
             }
-		}
+            else
+            {
+                var fieldInfo = typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance);
+                var positionInfo = typeof(Thing).GetField("positionInt", BindingFlags.NonPublic | BindingFlags.Instance);
+                //Assign Pawn's mapIndexOrState to building's mapIndexOrState
+                fieldInfo.SetValue(buildingPawn, fieldInfo.GetValue(this));
+                //Assign Pawn's position without nasty errors
+                positionInfo.SetValue(buildingPawn, Position);
+            }
+        }
 
         public override void ExposeData()
         {
@@ -219,6 +235,18 @@ namespace ProjectSAL
                 defaultDesc = "Allow/Disallow the auto-assembler to take forbidden items.",
                 isActive = () => allowForbidden,
                 toggleAction = () => allowForbidden = !allowForbidden
+            };
+            yield return new Command_Action
+            {
+                icon = ContentFinder<Texture2D>.Get("UI/Designators/Cancel"),
+                defaultLabel = "Cancel bills",
+                defaultDesc = "Click to make S.A.L. building drop its items and cancel bills.",
+                activateSound = SoundDefOf.Click,
+                action = () =>
+                {
+                    DropAllThings();
+                    resetRecipe();
+                }
             };
             if (Prefs.DevMode)
             {
@@ -299,7 +327,7 @@ namespace ProjectSAL
                 foreach (_IngredientCount ingredient in ingredients)
                 {
                     var str = ingredient.ToString();
-                    stringBuilder.Append(str + " ");//(75 x Steel), (63 x Wood), etc
+                    stringBuilder.Append(str + " ");//(75 x Steel) (63 x Wood) etc
                 }
             }
             return stringBuilder.ToString();
@@ -316,7 +344,20 @@ namespace ProjectSAL
         {
             if (currentRecipe == null) return;
             if (!currentRecipe.UsesUnfinishedThing)
-                thingRecord.ForEach(t => GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Near));
+            {
+                foreach (var t in thingRecord)
+                {
+                    if (t.Spawned)
+                    {
+                        Map.dynamicDrawManager.RegisterDrawable(t);
+                        var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
+                        var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
+                        list.Add(t);
+                        continue;
+                    }
+                    GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Near);
+                }
+            }
             else
             {
                 var stuff = (currentRecipe.unfinishedThingDef.MadeFromStuff) ? CalculateDominantIngredient(currentRecipe, thingRecord).def : null;
@@ -324,6 +365,7 @@ namespace ProjectSAL
                 unfinished.workLeft = workLeft;
                 GenPlace.TryPlaceThing(unfinished, Position, Map, ThingPlaceMode.Near);
             }
+            thingRecord.Clear();
         }
 
         /// <summary>
@@ -336,14 +378,14 @@ namespace ProjectSAL
             nextItems.ForEach(acceptEachItem);
         }
 
-        void acceptEachItem(Thing t)
+        protected void acceptEachItem(Thing t)
         {
             if (t.TryGetComp<CompForbiddable>() != null && t.TryGetComp<CompForbiddable>().Forbidden && !allowForbidden)
                 return;
             ingredients.ForEach(ingredient => acceptEachIngredient(ingredient, t));
         }
 
-        void acceptEachIngredient(_IngredientCount ingredient, Thing t)
+        protected void acceptEachIngredient(_IngredientCount ingredient, Thing t)
         {
         	if ((decimal)ingredient.count == 0)
                 return;
@@ -351,31 +393,72 @@ namespace ProjectSAL
             AcceptItemWithFilter(t, ingredient);
         }
 
-        void AcceptItemWithFilter(Thing t, _IngredientCount ingredient)
+        protected void AcceptItemWithFilter(Thing t, _IngredientCount ingredient)
         {
             if (ingredient.filter.Allows(t))
             {
-            	float basecount = (t.def.ingestible != null && t.def.ingestible.nutrition > 0 && !(t is Corpse)) ? t.def.ingestible.nutrition * t.stackCount : t.stackCount; //Used for nutrition calculations.
+            	float basecount = shouldUseNutritionMath(t, ingredient) ? t.def.ingestible.nutrition * t.stackCount : t.stackCount; //Used for nutrition calculations.
                 if (ingredient.count >= basecount)
                 {
+                    Thing dup;
+                    if (t is Corpse)
+                    {
+                        var corpse = t as Corpse;
+                        corpse.Strip();
+                        Map.dynamicDrawManager.DeRegisterDrawable(t);
+                        var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
+                        var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
+                        list.Remove(t);
+                        t.Position = Position;
+                        dup = t;
+                    }
+                    else
+                    {
+                        dup = t.SplitOff(t.stackCount);
+                    }
                     if (!thingRecord.Any(thing => t.def == thing.def))
-                        thingRecord.Add(t);
+                        thingRecord.Add(dup);
+                    else thingRecord.Find(thing => t.def == thing.def);
                     ingredient.count -= basecount;
-                    Map.thingGrid.Deregister(t);
+                    
+                    /*Map.thingGrid.Deregister(t);
                     Map.dynamicDrawManager.DeRegisterDrawable(t);
+                    var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
+                    var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
+                    list.Remove(t);
+                    typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(t, (sbyte)-1);*/
                 }
                 else
                 {
+                    Thing dup = t.SplitOff(Mathf.RoundToInt(shouldUseNutritionMath(t, ingredient) ? ingredient.Count / t.def.ingestible.nutrition : ingredient.Count));
                     if (!thingRecord.Any(thing => t.def == thing.def))
-                        thingRecord.Add(makeDuplicateOf(t, (int)ingredient.Count));
-                    basecount -= ingredient.Count;
-                    t.stackCount = Mathf.RoundToInt((t.def.ingestible != null && t.def.ingestible.nutrition > 0) ? basecount / t.def.ingestible.nutrition : basecount);
+                        thingRecord.Add(dup);
                     ingredient.count = 0;
                 }
             }
         }
 
-        Thing makeDuplicateOf(Thing t, int count)
+        protected static bool shouldUseNutritionMath(Thing t, _IngredientCount ingredient)
+        {
+            return t.def.ingestible != null && t.def.ingestible.nutrition > 0 && !(t is Corpse) && IngredientFilterHasNutrition(ingredient.filter);
+        }
+
+        protected static bool IngredientFilterHasNutrition(ThingFilter filter)
+        {
+            if (filter != null)
+            {
+                Func<string, bool> isNutrition = str => str == "Foods" || str == "PlantMatter";
+                var field = typeof(ThingFilter).GetField("categories", BindingFlags.NonPublic | BindingFlags.Instance);
+                var categories = (List<string>)field.GetValue(filter) ?? new List<string>();
+                foreach (string s in categories)
+                {
+                    if (DefDatabase<ThingCategoryDef>.GetNamed(s).Parents.Select(t => t.defName).Any(isNutrition) || isNutrition(s)) return true;
+                }
+            }
+            return false;
+        }
+
+        protected static Thing makeDuplicateOf(Thing t, int count)
         {
             var duplicate = ThingMaker.MakeThing(t.def, t.Stuff);
             duplicate.stackCount = count;
@@ -455,6 +538,7 @@ namespace ProjectSAL
         {
             currentRecipe = null;
             ingredients.Clear();
+            thingRecord.ForEach(t => t.Destroy());
             thingRecord.Clear();
             workLeft = 0;
             releaseAll();
