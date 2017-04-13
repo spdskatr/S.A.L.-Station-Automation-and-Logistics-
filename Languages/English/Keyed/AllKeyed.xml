@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+  <AdjustDirection_Output>Adjust output direction</AdjustDirection_Output>
+  <AdjustDirection_Input>Adjust input direction</AdjustDirection_Input>
+  <AdjustDirection_Desc>Click to rotate clockwise. Current direction is: {0}</AdjustDirection_Desc>
+  <SALToggleForbidden>Toggle allow forbidden</SALToggleForbidden>
+  <SALToggleForbidden_Desc>Allow/Disallow the auto-assembler to take forbidden items.</SALToggleForbidden_Desc>
+  <SALCancelBills>Cancel bills</SALCancelBills>
+  <SALCancelBills_Desc>Click to make S.A.L. building drop its items and cancel bills.</SALCancelBills_Desc>
+  <SALInspect_CurrentConfig>Current configuration: Input: {0}, Output: {1}</SALInspect_CurrentConfig>
+  <SALInspect_WorkLeft>Work left: {0}</SALInspect_WorkLeft>
+  <SALInspect_PowerOff>Power is off.</SALInspect_PowerOff>
+  <SALInspect_ResourcesNeeded>Resources needed: {0}</SALInspect_ResourcesNeeded>
+  <SAL_North>North</SAL_North>
+  <SAL_South>South</SAL_South>
+  <SAL_East>East</SAL_East>
+  <SAL_West>West</SAL_West>
+  <SAL_InvalidDirection>Invalid</SAL_InvalidDirection>
+  <SAL_Name>a S.A.L. crafter</SAL_Name><!-- (Some building) is reserved by "SAL_Name".Translate() -->
+</LanguageData>

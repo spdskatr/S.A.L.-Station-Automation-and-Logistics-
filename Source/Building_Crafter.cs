@@ -48,7 +48,7 @@ namespace ProjectSAL
 		{
 			get
 			{
-				return Position + GenAdj.CardinalDirections[0].RotatedBy(this.rotOutput);
+				return Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
 			}
 		}
 
@@ -56,7 +56,7 @@ namespace ProjectSAL
 		{
 			get
 			{
-				return Position + GenAdj.CardinalDirections[0].RotatedBy(this.rotInput);
+				return Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
 			}
 		}
 
@@ -78,7 +78,7 @@ namespace ProjectSAL
 		{
 			get
 			{
-				return Position + GenAdj.CardinalDirections[base.Rotation.AsInt];
+				return Position + GenAdj.CardinalDirections[Rotation.AsInt];
 			}
 		}
 
@@ -103,7 +103,7 @@ namespace ProjectSAL
 		{
 			get
 			{
-				return outputSlot.GetFirstItem(base.Map) != null || outputSlot.Impassable(base.Map);
+				return outputSlot.GetFirstItem(Map) != null || outputSlot.Impassable(Map);
 			}
 		}
         
@@ -111,7 +111,7 @@ namespace ProjectSAL
 		{
 			get
 			{
-				return currentRecipe != null && ingredients.Any() && !ingredients.Any(ingredient => ingredient.count > 0);
+				return currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
 			}
         }
         
@@ -215,32 +215,32 @@ namespace ProjectSAL
             yield return new Command_Action
             {
                 icon = ContentFinder<Texture2D>.Get("UI/Misc/Compass"),
-                defaultLabel = "Adjust output direction",
-                defaultDesc = "Click to rotate clockwise. Current output direction is: " + rotOutput.asCompassDirection(),
+                defaultLabel = "AdjustDirection_Output".Translate(),
+                defaultDesc = "AdjustDirection_Desc".Translate(rotOutput.asCompassDirection()),
                 activateSound = SoundDefOf.Click,
                 action = () => rotOutput.Rotate(RotationDirection.Clockwise)
             };
             yield return new Command_Action
             {
                 icon = ContentFinder<Texture2D>.Get("UI/Misc/Compass"),
-                defaultLabel = "Adjust input direction",
-                defaultDesc = "Click to rotate clockwise. Current input direction is: " + rotInput.asCompassDirection(),
+                defaultLabel = "AdjustDirection_Input".Translate(),
+                defaultDesc = "AdjustDirection_Desc".Translate(rotInput.asCompassDirection()),
                 activateSound = SoundDefOf.Click,
                 action = () => rotInput.Rotate(RotationDirection.Clockwise)
             };
             yield return new Command_Toggle
             {
                 icon = ContentFinder<Texture2D>.Get("Things/Special/ForbiddenOverlay"),
-                defaultLabel = "Toggle allow forbidden",
-                defaultDesc = "Allow/Disallow the auto-assembler to take forbidden items.",
+                defaultLabel = "SALToggleForbidden".Translate(),
+                defaultDesc = "SALToggleForbidden_Desc".Translate(),
                 isActive = () => allowForbidden,
                 toggleAction = () => allowForbidden = !allowForbidden
             };
             yield return new Command_Action
             {
                 icon = ContentFinder<Texture2D>.Get("UI/Designators/Cancel"),
-                defaultLabel = "Cancel bills",
-                defaultDesc = "Click to make S.A.L. building drop its items and cancel bills.",
+                defaultLabel = "SALCancelBills".Translate(),
+                defaultDesc = "SALCancelBills_Desc".Translate(),
                 activateSound = SoundDefOf.Click,
                 action = () =>
                 {
@@ -315,15 +315,15 @@ namespace ProjectSAL
         {
             var stringBuilder = new StringBuilder();
             stringBuilder.Append(base.GetInspectString());
-            stringBuilder.AppendLine(string.Format("Current configuration: Input: {0}, Output: {1}", rotInput.asCompassDirection(), rotOutput.asCompassDirection()));
-            stringBuilder.AppendLine("Work left: " + workLeft.ToStringWorkAmount());
+            stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotInput.asCompassDirection(), rotOutput.asCompassDirection()));
+            stringBuilder.AppendLine("SALInspect_WorkLeft".Translate(workLeft.ToStringWorkAmount()));
             if (!GetComp<CompPowerTrader>().PowerOn)
             {
-                stringBuilder.Append("Power is off.");
+                stringBuilder.Append("SALInspect_PowerOff".Translate());
             }
             else
             {
-                stringBuilder.AppendLine("Resources needed: ");
+                stringBuilder.AppendLine("SALInspect_ResourcesNeeded".Translate());
                 foreach (_IngredientCount ingredient in ingredients)
                 {
                     var str = ingredient.ToString();
@@ -355,7 +355,7 @@ namespace ProjectSAL
                         list.Add(t);
                         continue;
                     }
-                    GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Near);
+                    else GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Near);
                 }
             }
             else
@@ -505,7 +505,7 @@ namespace ProjectSAL
         public virtual void doPawn()
         {
             Pawn p = PawnGenerator.GeneratePawn(PawnKindDefOf.Slave, Faction);
-            p.Name = new NameTriple("Crafter", "a Project S.A.L. crafter", GetUniqueLoadID());
+            p.Name = new NameTriple(LabelCap, "SAL_Name".Translate(), GetUniqueLoadID());
             foreach (var s in p.skills.skills)
             {
             	int level = 5;

@@ -41,15 +41,15 @@ namespace ProjectSAL
             switch (rot.AsByte)
             {
                 case 0:
-                    return "north";
+                    return "SAL_North".Translate();
                 case 1:
-                    return "east";
+                    return "SAL_East".Translate();
                 case 2:
-                    return "south";
+                    return "SAL_South".Translate();
                 case 3:
-                    return "west";
+                    return "SAL_West".Translate();
                 default:
-                    return "invalid";
+                    return "SAL_InvalidDirection".Translate();
             }
         }
         public static float calculateCraftingSpeedFactor(this StatDef workSpeedStat, Pawn pawn)
@@ -62,15 +62,6 @@ namespace ProjectSAL
         		basenum *= skillNeedFactors[i].FactorFor(pawn);
             }
             return basenum;
-        }
-        public static T makeDuplicateObject<T>(this T obj)
-        {
-            var newObj = Activator.CreateInstance(obj.GetType());
-            foreach (var field in obj.GetType().GetFields())
-            {
-                newObj.GetType().GetFields().ToList().Find(f => f.Name == field.Name).SetValue(newObj, field.GetValue(obj));
-            }
-            return (T)newObj;
         }
     }
     /// <summary>
@@ -119,9 +110,9 @@ namespace ProjectSAL
 			return string.Concat(new object[]
 			{
 				"(",
-				this.count,
+				count,
 				"x ",
-				this.filter.ToString(),
+			    filter.ToString(),
 				")"
 			});
 		}
