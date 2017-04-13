@@ -605,10 +605,14 @@ namespace ProjectSAL
         public static Thing CalculateDominantIngredient(RecipeDef currentRecipe, List<Thing> thingRecord)
         {
             var stuffs = thingRecord.Where(t => t.def.IsStuff);
-            if (thingRecord.NullOrEmpty())
+            if (thingRecord == null)
             {
                 Log.Warning("ThingRecord was null.");
                 return null;
+            }
+            if (thingRecord.Count == 0)
+            {
+                return ThingMaker.MakeThing(ThingDefOf.Steel);
             }
             if (currentRecipe.productHasIngredientStuff)
             {
