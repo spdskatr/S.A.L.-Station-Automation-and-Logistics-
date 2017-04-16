@@ -9,8 +9,8 @@ using Verse.Sound;
 using RimWorld;
 
 //S.A.L. | Station Automation and Logistics
-/*
- * To-do:                                         Done?
+/* To-do: 
+ *                                                Done?
  * Reserve workbench------------------------------DONE
  * Resolve pawn error on map load-----------------DONE
  * Check if workbench has power-------------------DONE
@@ -26,7 +26,7 @@ using RimWorld;
  * Sort out problem with nutrition/cooking--------DONE
  * Eject items in thingRecord if deconstructed----DONE
  * Edit defs: Not forbiddable, flickable----------DONE
- * File to C# 5.0 (No errors with SharpDevelop)---DONE
+ * Make smart hopper------------------------------DONE
  * */
 namespace ProjectSAL
 {
@@ -44,21 +44,9 @@ namespace ProjectSAL
         [Unsaved]
         public Sustainer sustainer;
 
-		public IntVec3 outputSlot
-		{
-			get
-			{
-				return Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
-			}
-		}
+		public IntVec3 outputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
 
-		public IntVec3 inputSlot
-		{
-			get
-			{
-				return Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
-			}
-		}
+		public IntVec3 inputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
 
         public List<Thing> nextItems
         {
@@ -74,70 +62,21 @@ namespace ProjectSAL
             }
         }
 
-		public IntVec3 workTableCell
-		{
-			get
-			{
-				return Position + GenAdj.CardinalDirections[Rotation.AsInt];
-			}
-		}
+		public IntVec3 workTableCell => Position + GenAdj.CardinalDirections[Rotation.AsInt];
 
-        public Building_WorkTable workTable
-        {
-            get
-            {
-                Building_WorkTable result;
-                return Map.thingGrid.ThingsListAt(workTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out result) ? result : null;
-            }
-        }
+        public Building_WorkTable workTable => Map.thingGrid.ThingsListAt(workTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out Building_WorkTable result) ? result : null;
 
-		public BillStack billStack
-		{
-			get
-			{
-				return workTable == null ? null : workTable.BillStack;
-			}
-		}
+		public BillStack billStack => workTable == null ? null : workTable.BillStack;
 
-		protected bool OutputSlotOccupied
-		{
-			get
-			{
-				return outputSlot.GetFirstItem(Map) != null || outputSlot.Impassable(Map);
-			}
-		}
+		protected bool OutputSlotOccupied => outputSlot.GetFirstItem(Map) != null || outputSlot.Impassable(Map);
         
-        protected bool shouldDoWork 
-		{
-			get
-			{
-				return currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
-			}
-        }
+        protected bool shouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
         
-		protected bool shouldStartBill
-		{
-			get
-			{
-				return this.currentRecipe == null && billStack != null && billStack.AnyShouldDoNow;
-			}
-		}
+		protected bool shouldStartBill => currentRecipe == null && billStack != null && billStack.AnyShouldDoNow;
 
-		protected bool workDone
-		{
-			get
-			{
-				return currentRecipe != null && shouldDoWork && (int)workLeft == 0;
-			}
-		}
+		protected bool workDone => currentRecipe != null && shouldDoWork && (int)workLeft == 0;
 
-		protected SoundDef soundOfCurrentRecipe
-		{
-			get
-			{
-				return currentRecipe == null ? null : currentRecipe.soundWorking;
-			}
-		}
+		protected SoundDef soundOfCurrentRecipe => currentRecipe == null ? null : currentRecipe.soundWorking;
 		
         protected bool workTableisReservedByOther
         {
@@ -152,21 +91,9 @@ namespace ProjectSAL
         /// <summary>
         /// If worktable is reserved by someone else, or dependent on power and has no power, return false
         /// </summary>
-		protected bool workTableIsDisabled
-		{
-			get
-			{
-				return workTable != null && this.workTableisReservedByOther && workTableIsPoweredOff;
-			}
-		}
+		protected bool workTableIsDisabled => workTable != null && this.workTableisReservedByOther && workTableIsPoweredOff;
 		
-		protected bool workTableIsPoweredOff
-		{
-			get
-			{
-				return (workTable.GetComp<CompPowerTrader>() != null && !workTable.GetComp<CompPowerTrader>().PowerOn) || (workTable.GetComp<CompBreakdownable>() != null && workTable.GetComp<CompBreakdownable>().BrokenDown);
-			}
-		}
+		protected bool workTableIsPoweredOff => (workTable.GetComp<CompPowerTrader>() != null && !workTable.GetComp<CompPowerTrader>().PowerOn) || (workTable.GetComp<CompBreakdownable>() != null && workTable.GetComp<CompBreakdownable>().BrokenDown);
 
         //Constructors go here if needed
         
@@ -317,13 +244,14 @@ namespace ProjectSAL
             stringBuilder.Append(base.GetInspectString());
             stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotInput.asCompassDirection(), rotOutput.asCompassDirection()));
             stringBuilder.AppendLine("SALInspect_WorkLeft".Translate(workLeft.ToStringWorkAmount()));
+            stringBuilder.AppendLine("SALInspect_PlacementQueue".Translate(thingPlacementQueue.Count));
             if (!GetComp<CompPowerTrader>().PowerOn)
             {
                 stringBuilder.Append("SALInspect_PowerOff".Translate());
             }
             else
             {
-                stringBuilder.AppendLine("SALInspect_ResourcesNeeded".Translate());
+                stringBuilder.Append("SALInspect_ResourcesNeeded".Translate());
                 foreach (_IngredientCount ingredient in ingredients)
                 {
                     var str = ingredient.ToString();
@@ -380,7 +308,10 @@ namespace ProjectSAL
 
         protected void acceptEachItem(Thing t)
         {
-            if (t.TryGetComp<CompForbiddable>() != null && t.TryGetComp<CompForbiddable>().Forbidden && !allowForbidden)
+            if (t.TryGetComp<CompForbiddable>() != null 
+                && (!t.TryGetComp<CompForbiddable>()?.Forbidden ?? false
+                || allowForbidden)
+                && Map.reservationManager.IsReserved(new LocalTargetInfo(t), Faction.OfPlayer))
                 return;
             ingredients.ForEach(ingredient => acceptEachIngredient(ingredient, t));
         }
@@ -551,6 +482,19 @@ namespace ProjectSAL
                 GenPlace.TryPlaceThing(thingPlacementQueue.First(), outputSlot, Map, ThingPlaceMode.Direct);
                 thingPlacementQueue.RemoveAt(0);
             }
+            else if (thingPlacementQueue.Count > 0)
+            {
+                foreach (var t in thingPlacementQueue)
+                {
+                    var thing = outputSlot.GetThingList(Map).Find(th => th.CanStackWith(t));
+                    thing?.TryAbsorbStack(t, true);
+                    if (t.Destroyed || t.stackCount == 0)
+                    {
+                        thingPlacementQueue.Remove(t);
+                        break;
+                    }
+                }
+            }
         }
         
 
@@ -583,17 +527,21 @@ namespace ProjectSAL
             }
             return isNull;
         }
-        
-        public void TryReserve()
+
+        public void TryReserve(Thing thing = null)
         {
-			if (workTable == null) 
+			if (thing == null) 
 			{
-				Log.Error("Tried to reserve but workTable was null.");
-				return;
+                if (workTable == null)
+                {
+                    Log.Error("Tried to reserve workTable but workTable was null.");
+                    return;
+                }
+                thing = workTable;
 			}
-			Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(workTable));
-			if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(workTable))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(workTable));
-			else ProjectSAL_Utilities.Message("Could not reserve.", 4);
+			Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
+			if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(thing))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
+			else ProjectSAL_Utilities.Message("Could not reserve thing " + thing, 4);
         }
         
         public void releaseAll()
@@ -635,5 +583,111 @@ namespace ProjectSAL
             }
         }
 
+    }
+    public class Building_SmartHopper : Building_Storage
+    {
+        public int limit = 75;
+
+        [Unsaved]
+        public IEnumerable<IntVec3> cachedDetectorCells;
+
+        protected virtual bool ShouldRespectStackLimit => true;
+
+        public Thing StoredThing => Position.GetFirstItem(Map);
+
+        public IEnumerable<IntVec3> CellsToSelect
+        {
+            get
+            {
+                if (Find.TickManager.TicksGame % 50 != 0 && cachedDetectorCells != null)
+                {
+                    ProjectSAL_Utilities.Message("Returning cache.", 7);
+                    return cachedDetectorCells;
+                }
+
+                var resultCache = from IntVec3 c in (GenRadial.RadialCellsAround(Position, def.specialDisplayRadius, false) ?? new List<IntVec3>()) where c.GetZone(Map) != null && c.GetZone(Map) is Zone_Stockpile select c;
+                cachedDetectorCells = resultCache;
+                return resultCache;
+            }
+        }
+
+        public IEnumerable<Thing> ThingsToSelect
+        {
+            get
+            {
+                foreach (var c in CellsToSelect)
+                {
+                    foreach (var t in Map.thingGrid.ThingsListAt(c))
+                    {
+                        yield return t;
+                    }
+                }
+            }
+        }
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.LookValue(ref limit, "limit", 75);
+        }
+
+        public override string GetInspectString() => base.GetInspectString() + "SmartHopper_Limit".Translate(limit);
+
+        public override void Tick()
+        {
+            base.Tick();
+            if (GetComp<CompPowerTrader>().PowerOn && Find.TickManager.TicksGame % 10 == 0)
+            {
+                foreach (var element in ThingsToSelect)
+                {
+                    if (element.def.category == ThingCategory.Item && settings.AllowedToAccept(element))
+                    {
+                        if (StoredThing != null)
+                        {
+                            if (StoredThing.CanStackWith(element))
+                            {
+                                //Verse.ThingUtility.TryAsborbStackNumToTake <- That's not a typo, that's an actual method. Seriously. Good thing it's fixed in A17, eh? (LudeonLeaks, 2017)
+                                var num = Mathf.Min(element.stackCount, Mathf.Min(limit, StoredThing.def.stackLimit) - StoredThing.stackCount);
+                                if (num > 0)
+                                {
+                                    var t = element.SplitOff(num);
+                                    StoredThing.TryAbsorbStack(t, true);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            var num = Mathf.Min(element.stackCount, limit);
+                            if (num == element.stackCount)
+                            {
+                                element.Position = Position;
+                            }
+                            else if (num > 0)
+                            {
+                                var t = element.SplitOff(num);
+                                GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Direct);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        public override void DrawExtraSelectionOverlays()
+        {
+            base.DrawExtraSelectionOverlays();
+            GenDraw.DrawFieldEdges(CellsToSelect.ToList(), Color.green);
+        }
+        public override IEnumerable<Gizmo> GetGizmos()
+        {
+            foreach (var g in base.GetGizmos())
+                yield return g;
+            yield return new Command_Action
+            {
+                icon = ContentFinder<Texture2D>.Get("UI/Commands/SetTargetFuelLevel"),
+                defaultLabel = "SmartHopper_SetTargetAmount".Translate(),
+                action = () => Find.WindowStack.Add(new Dialog_SmartHopperSetTargetAmount(this)),
+            };
+        }
     }
 }

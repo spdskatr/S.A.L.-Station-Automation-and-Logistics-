@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using RimWorld;
 using Verse;
+using UnityEngine;
 
 namespace ProjectSAL
 {
@@ -12,7 +13,7 @@ namespace ProjectSAL
     	/// <summary>
     	/// This value is normally revision number + 1
     	/// </summary>
-		public static int minImportance = 6;
+		public static int minImportance = 8;
         public static bool FFPresent
         {
             get
@@ -63,6 +64,21 @@ namespace ProjectSAL
             }
             return basenum;
         }
+        /*public static bool IsWithinRange(this IntVec3 first, IntVec3 other, float range)
+        {
+            var offset = first - other;
+            var distance = Distance(offset.x, offset.z);
+            return distance < range + 0.001f;
+        }
+        /// <summary>
+        /// Simple distance formula calculation.
+        /// </summary>
+        public static float Distance(float a, float b)
+        {
+            var result = Mathf.Sqrt(Mathf.Pow(a, 2) + Mathf.Pow(b, 2));
+            Message(string.Format("Calculating distance. A: {0} B: {1} C: {2}", a, b, result), 6);
+            return result;
+        }*/
     }
     /// <summary>
     /// Programmer trick to save IngredientCount.
@@ -116,5 +132,21 @@ namespace ProjectSAL
 				")"
 			});
 		}
+    }
+    public class Dialog_SmartHopperSetTargetAmount : Dialog_Rename
+    {
+        protected Building_SmartHopper smartHopper;
+        public Dialog_SmartHopperSetTargetAmount(Building_SmartHopper building)
+        {
+            smartHopper = building;
+        }
+        protected override AcceptanceReport NameIsValid(string name)
+        {
+            return int.TryParse(name, out int i);
+        }
+        protected override void SetName(string name)
+        {
+            smartHopper.limit = int.Parse(name);
+        }
     }
 }
