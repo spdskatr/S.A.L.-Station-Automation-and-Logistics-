@@ -27,6 +27,8 @@ using RimWorld;
  * Eject items in thingRecord if deconstructed----DONE
  * Edit defs: Not forbiddable, flickable----------DONE
  * Make smart hopper------------------------------DONE
+ * Check for small volume
+ * Patch for Mending
  * */
 namespace ProjectSAL
 {
@@ -44,16 +46,16 @@ namespace ProjectSAL
         [Unsaved]
         public Sustainer sustainer;
 
-		public IntVec3 outputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
+		public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
 
-		public IntVec3 inputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
+		public IntVec3 InputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
 
-        public List<Thing> nextItems
+        public List<Thing> NextItems
         {
             get
             {
                 var things = new List<Thing>();
-                inputSlot.GetThingList(Map).ForEach(t =>
+                InputSlot.GetThingList(Map).ForEach(t =>
                 {
                     if (t.def.category == ThingCategory.Item)
                         things.Add(t);
@@ -62,28 +64,28 @@ namespace ProjectSAL
             }
         }
 
-		public IntVec3 workTableCell => Position + GenAdj.CardinalDirections[Rotation.AsInt];
+		public IntVec3 WorkTableCell => Position + GenAdj.CardinalDirections[Rotation.AsInt];
 
-        public Building_WorkTable workTable => Map.thingGrid.ThingsListAt(workTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out Building_WorkTable result) ? result : null;
+        public Building_WorkTable WorkTable => Map.thingGrid.ThingsListAt(WorkTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out Building_WorkTable result) ? result : null;
 
-		public BillStack billStack => workTable == null ? null : workTable.BillStack;
+		public BillStack BillStack => WorkTable?.BillStack;
 
-		protected bool OutputSlotOccupied => outputSlot.GetFirstItem(Map) != null || outputSlot.Impassable(Map);
+		protected bool OutputSlotOccupied => OutputSlot.GetFirstItem(Map) != null || OutputSlot.Impassable(Map);
         
-        protected bool shouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
+        protected bool ShouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
         
-		protected bool shouldStartBill => currentRecipe == null && billStack != null && billStack.AnyShouldDoNow;
+		protected bool ShouldStartBill => currentRecipe == null && BillStack != null && BillStack.AnyShouldDoNow;
 
-		protected bool workDone => currentRecipe != null && shouldDoWork && (int)workLeft == 0;
+		protected bool WorkDone => currentRecipe != null && ShouldDoWork && (int)workLeft == 0;
 
-		protected SoundDef soundOfCurrentRecipe => currentRecipe == null ? null : currentRecipe.soundWorking;
+		protected SoundDef SoundOfCurrentRecipe => currentRecipe?.soundWorking;
 		
-        protected bool workTableisReservedByOther
+        protected bool WorkTableisReservedByOther
         {
         	get
         	{
-        		if (workTable == null) return false;
-        		var target = new LocalTargetInfo(workTable);
+        		if (WorkTable == null) return false;
+        		var target = new LocalTargetInfo(WorkTable);
         		return Map.reservationManager.IsReserved(target, Faction) && !Map.physicalInteractionReservationManager.IsReservedBy(buildingPawn, target) && !Map.reservationManager.ReservedBy(target, buildingPawn);
         	}
         }
@@ -91,9 +93,9 @@ namespace ProjectSAL
         /// <summary>
         /// If worktable is reserved by someone else, or dependent on power and has no power, return false
         /// </summary>
-		protected bool workTableIsDisabled => workTable != null && this.workTableisReservedByOther && workTableIsPoweredOff;
-		
-		protected bool workTableIsPoweredOff => (workTable.GetComp<CompPowerTrader>() != null && !workTable.GetComp<CompPowerTrader>().PowerOn) || (workTable.GetComp<CompBreakdownable>() != null && workTable.GetComp<CompBreakdownable>().BrokenDown);
+		protected bool WorkTableIsDisabled => WorkTable != null && this.WorkTableisReservedByOther && WorkTableIsPoweredOff;
+
+        protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) || (WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false);
 
         //Constructors go here if needed
         
@@ -102,7 +104,7 @@ namespace ProjectSAL
 			base.SpawnSetup(map);
             if (buildingPawn == null)
             {
-                doPawn();
+                DoPawn();
                 ProjectSAL_Utilities.Message("made new pawn.", 3);
             }
             else
@@ -130,7 +132,7 @@ namespace ProjectSAL
             Scribe_Collections.LookList(ref thingPlacementQueue, "placementQueue", LookMode.Deep);
             if (buildingPawn == null)
             {
-                doPawn();
+                DoPawn();
                 ProjectSAL_Utilities.Message("made new pawn.", 3);
             }
         }
@@ -172,7 +174,7 @@ namespace ProjectSAL
                 action = () =>
                 {
                     DropAllThings();
-                    resetRecipe();
+                    ResetRecipe();
                 }
             };
             if (Prefs.DevMode)
@@ -195,15 +197,15 @@ namespace ProjectSAL
             base.Tick();
 			if (!GetComp<CompPowerTrader>().PowerOn) 
 			{
-				if (Map.reservationManager.IsReserved(new LocalTargetInfo(workTable), Faction)) releaseAll();
+				if (Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) ReleaseAll();
 				ProjectSAL_Utilities.Message("Reset reservations.", 4);
 				return;
 			}
-            if (shouldDoWork && soundOfCurrentRecipe != null && !workTableIsDisabled)
-                playSustainer();
-            if (workTable != null && !Map.reservationManager.IsReserved(new LocalTargetInfo(workTable), Faction)) TryReserve();
+            if (ShouldDoWork && SoundOfCurrentRecipe != null && !WorkTableIsDisabled)
+                PlaySustainer();
+            if (WorkTable != null && !Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) TryReserve();
             if (Find.TickManager.TicksGame % 10 == 0)
-                acceptItems();//once every 10 ticks
+                AcceptItems();//once every 10 ticks
             if (Find.TickManager.TicksGame % 60 == 0)
                 TickSecond();//once every 60 ticks
         }
@@ -214,9 +216,9 @@ namespace ProjectSAL
 
             if (ResetIfWorkTableIsNull())
                 return;
-            if (shouldStartBill)
-                setRecipe(billStack.FirstShouldDoNow);
-            if (shouldDoWork)
+            if (ShouldStartBill)
+                SetRecipe(BillStack.FirstShouldDoNow);
+            if (ShouldDoWork)
             {
                 if (workLeft <= 0)
                 {
@@ -224,18 +226,18 @@ namespace ProjectSAL
                     ProjectSAL_Utilities.Message("mainIngDef: " + mainIngDef.ToString(), 3);
                     workLeft = currentRecipe.WorkAmountTotal(mainIngDef);
                 }
-                doWork();
+                DoWork();
             }
-            if (workDone)
-                tryMakeProducts();
+            if (WorkDone)
+                TryMakeProducts();
         }
 
         public override void DrawExtraSelectionOverlays()
         {
             base.DrawExtraSelectionOverlays();
-            GenDraw.DrawFieldEdges(new List<IntVec3> { inputSlot });
-            GenDraw.DrawFieldEdges(new List<IntVec3> { outputSlot }, Color.green);
-            Graphics.DrawMesh(MeshPool.plane10, workTableCell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), Quaternion.identity, GenDraw.InteractionCellMaterial, 0);
+            GenDraw.DrawFieldEdges(new List<IntVec3> { InputSlot });
+            GenDraw.DrawFieldEdges(new List<IntVec3> { OutputSlot }, Color.green);
+            Graphics.DrawMesh(MeshPool.plane10, WorkTableCell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), Quaternion.identity, GenDraw.InteractionCellMaterial, 0);
         }
 
         public override string GetInspectString()
@@ -263,7 +265,7 @@ namespace ProjectSAL
 
         public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
         {
-        	releaseAll();
+        	ReleaseAll();
             DropAllThings();
             base.Destroy(mode);
         }
@@ -299,24 +301,24 @@ namespace ProjectSAL
         /// <summary>
         /// Accepts a new load of items into ingredient list
         /// </summary>
-        public void acceptItems()
+        public void AcceptItems()
         {
-            ProjectSAL_Utilities.Message("Count of nextItems: " + nextItems.Count, 1);
+            ProjectSAL_Utilities.Message("Count of nextItems: " + NextItems.Count, 1);
             ProjectSAL_Utilities.Message("Count of ingredients: " + ingredients.Count, 1);
-            nextItems.ForEach(acceptEachItem);
+            NextItems.ForEach(AcceptEachItem);
         }
 
-        protected void acceptEachItem(Thing t)
+        protected void AcceptEachItem(Thing t)
         {
             if (t.TryGetComp<CompForbiddable>() != null 
                 && (!t.TryGetComp<CompForbiddable>()?.Forbidden ?? false
                 || allowForbidden)
                 && Map.reservationManager.IsReserved(new LocalTargetInfo(t), Faction.OfPlayer))
                 return;
-            ingredients.ForEach(ingredient => acceptEachIngredient(ingredient, t));
+            ingredients.ForEach(ingredient => AcceptEachIngredient(ingredient, t));
         }
 
-        protected void acceptEachIngredient(_IngredientCount ingredient, Thing t)
+        protected void AcceptEachIngredient(_IngredientCount ingredient, Thing t)
         {
         	if ((decimal)ingredient.count == 0)
                 return;
@@ -326,52 +328,72 @@ namespace ProjectSAL
 
         protected void AcceptItemWithFilter(Thing t, _IngredientCount ingredient)
         {
-            if (ingredient.filter.Allows(t))
+            var bill = (WorkTable != null && BillStack != null) ? BillStack.FirstShouldDoNow : null;
+            if (bill.recipe != currentRecipe)
             {
-            	float basecount = shouldUseNutritionMath(t, ingredient) ? t.def.ingestible.nutrition * t.stackCount : t.stackCount; //Used for nutrition calculations.
-                if (ingredient.count >= basecount)
-                {
-                    Thing dup;
-                    if (t is Corpse)
-                    {
-                        var corpse = t as Corpse;
-                        corpse.Strip();
-                        Map.dynamicDrawManager.DeRegisterDrawable(t);
-                        var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
-                        var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
-                        list.Remove(t);
-                        t.Position = Position;
-                        dup = t;
-                    }
-                    else
-                    {
-                        dup = t.SplitOff(t.stackCount);
-                    }
-                    if (!thingRecord.Any(thing => t.def == thing.def))
-                        thingRecord.Add(dup);
-                    else thingRecord.Find(thing => t.def == thing.def);
-                    ingredient.count -= basecount;
-                    
-                    /*Map.thingGrid.Deregister(t);
-                    Map.dynamicDrawManager.DeRegisterDrawable(t);
-                    var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
-                    var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
-                    list.Remove(t);
-                    typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(t, (sbyte)-1);*/
-                }
-                else
-                {
-                    Thing dup = t.SplitOff(Mathf.RoundToInt(shouldUseNutritionMath(t, ingredient) ? ingredient.Count / t.def.ingestible.nutrition : ingredient.Count));
-                    if (!thingRecord.Any(thing => t.def == thing.def))
-                        thingRecord.Add(dup);
-                    ingredient.count = 0;
-                }
+                ResetRecipe();
+                DropAllThings();
+                return;
+            }
+            if (ingredient.filter.Allows(t) && bill.ingredientFilter.Allows(t))
+            {
+                ProcessItem(t, ingredient);
             }
         }
 
-        protected static bool shouldUseNutritionMath(Thing t, _IngredientCount ingredient)
+        private void ProcessItem(Thing t, _IngredientCount ingredient)
         {
-            return t.def.ingestible != null && t.def.ingestible.nutrition > 0 && !(t is Corpse) && IngredientFilterHasNutrition(ingredient.filter);
+            //Used for nutrition calculations.
+            float basecount = ShouldUseNutritionMath(t, ingredient) ? t.def.ingestible.nutrition * t.stackCount : t.stackCount; 
+            if (ingredient.count >= basecount)
+            {
+                TakeItemWhenBaseCountDoesNotSatisfy(t, ingredient, basecount);
+            }
+            else
+            {
+                SplitItemWhenBaseCountSatisfies(t, ingredient);
+            }
+        }
+
+        private void SplitItemWhenBaseCountSatisfies(Thing t, _IngredientCount ingredient)
+        {
+            var countToSplitOff = Mathf.RoundToInt(ShouldUseNutritionMath(t, ingredient) ? ingredient.Count / t.def.ingestible.nutrition : ingredient.Count);
+            if (countToSplitOff > 0)
+            {
+                Thing dup = t.SplitOff(countToSplitOff);
+                if (!thingRecord.Any(thing => t.def == thing.def))
+                    thingRecord.Add(dup);
+            }
+            ingredient.count = 0;
+        }
+
+        private void TakeItemWhenBaseCountDoesNotSatisfy(Thing t, _IngredientCount ingredient, float basecount)
+        {
+            Thing dup;
+            if (t is Corpse)
+            {
+                var corpse = t as Corpse;
+                corpse.Strip();
+                Map.dynamicDrawManager.DeRegisterDrawable(t);
+                var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
+                var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
+                if (list.Contains(t)) list.Remove(t);
+                t.Position = Position;
+                dup = t;
+            }
+            else
+            {
+                dup = t.SplitOff(t.stackCount);
+            }
+            if (!thingRecord.Any(thing => t.def == thing.def))
+                thingRecord.Add(dup);
+            else thingRecord.Find(thing => t.def == thing.def);
+            ingredient.count -= basecount;
+        }
+
+        protected static bool ShouldUseNutritionMath(Thing t, _IngredientCount ingredient)
+        {
+            return (t.def.ingestible?.nutrition ?? 0f) > 0f && !(t is Corpse) && IngredientFilterHasNutrition(ingredient.filter);
         }
 
         protected static bool IngredientFilterHasNutrition(ThingFilter filter)
@@ -380,7 +402,7 @@ namespace ProjectSAL
             {
                 Func<string, bool> isNutrition = str => str == "Foods" || str == "PlantMatter";
                 var field = typeof(ThingFilter).GetField("categories", BindingFlags.NonPublic | BindingFlags.Instance);
-                var categories = (List<string>)field.GetValue(filter) ?? new List<string>();
+                var categories = (List<string>)(field.GetValue(filter) ?? new List<string>());
                 foreach (string s in categories)
                 {
                     if (DefDatabase<ThingCategoryDef>.GetNamed(s).Parents.Select(t => t.defName).Any(isNutrition) || isNutrition(s)) return true;
@@ -389,18 +411,18 @@ namespace ProjectSAL
             return false;
         }
 
-        protected static Thing makeDuplicateOf(Thing t, int count)
+        protected static Thing MakeDuplicateOf(Thing t, int count)
         {
             var duplicate = ThingMaker.MakeThing(t.def, t.Stuff);
             duplicate.stackCount = count;
             return duplicate;
         }
 
-        public virtual void doWork(int interval = 60)
+        public virtual void DoWork(int interval = 60)
         {
-			if (workTableIsDisabled) 
+			if (WorkTableIsDisabled) 
 			{
-				releaseAll();
+				ReleaseAll();
 				return;
 			} 
             if (workLeft > 0)
@@ -412,12 +434,12 @@ namespace ProjectSAL
                 }
             }
         }
-        public virtual void tryMakeProducts()
+        public virtual void TryMakeProducts()
         {
             if (currentRecipe == null)
             {
                 Log.Warning(ToString() + " had workLeft > 0 when the currentRecipe is NULL. Resetting. (workLeft probably isn't synchronised with recipe. Use resetRecipe() to set currentRecipe to NULL and to synchronise workLeft.)");
-                resetRecipe();
+                ResetRecipe();
                 return;
             }
             foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
@@ -426,14 +448,14 @@ namespace ProjectSAL
                 ProjectSAL_Utilities.Message("Thing added to queue. Thing was: " + obj + " x " + obj.stackCount, 2);
             }
             ProjectSAL_Utilities.Message("Current thingPlacementQueue length is: " + thingPlacementQueue.Count, 2);
-            FindBillAndChangeRepeatCount(billStack, currentRecipe);
-            resetRecipe();
+            FindBillAndChangeRepeatCount(BillStack, currentRecipe);
+            ResetRecipe();
         }
 
         /// <summary>
         /// Makes a pawn.
         /// </summary>
-        public virtual void doPawn()
+        public virtual void DoPawn()
         {
             Pawn p = PawnGenerator.GeneratePawn(PawnKindDefOf.Slave, Faction);
             p.Name = new NameTriple(LabelCap, "SAL_Name".Translate(), GetUniqueLoadID());
@@ -449,15 +471,14 @@ namespace ProjectSAL
                 ProjectSAL_Utilities.Message("Successfully assigned level " + level + " for " + s.def.defName + " to buildingPawn.", 5);
             }
             var fieldInfo = typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance);
-            var positionInfo = typeof(Thing).GetField("positionInt", BindingFlags.NonPublic | BindingFlags.Instance);
             //Assign Pawn's mapIndexOrState to building's mapIndexOrState
             fieldInfo.SetValue(p, fieldInfo.GetValue(this));
             //Assign Pawn's position without nasty errors
-            positionInfo.SetValue(p, Position);
+            p.SetPositionDirect(Position);
             buildingPawn = p;
         }
 
-        public virtual void setRecipe(Bill b)
+        public virtual void SetRecipe(Bill b)
         {
             ProjectSAL_Utilities.Message("Setting recipe: " + b, 3);
             currentRecipe = b.recipe;
@@ -465,28 +486,28 @@ namespace ProjectSAL
             (currentRecipe.ingredients ?? new List<IngredientCount>()).ForEach(ing => ingredients.Add(ing.toSaveable()));
         }
 
-        public virtual void resetRecipe()
+        public virtual void ResetRecipe()
         {
             currentRecipe = null;
             ingredients.Clear();
             thingRecord.ForEach(t => t.Destroy());
             thingRecord.Clear();
             workLeft = 0;
-            releaseAll();
+            ReleaseAll();
         }
         public virtual void TryOutputItem()
         {
             ProjectSAL_Utilities.Message(string.Format("ThingPlacementQueue length: {0}, OutputSlotOccupied: {1}", thingPlacementQueue.Count, OutputSlotOccupied), 1);
             if (!OutputSlotOccupied && thingPlacementQueue.Count > 0)
             {
-                GenPlace.TryPlaceThing(thingPlacementQueue.First(), outputSlot, Map, ThingPlaceMode.Direct);
+                GenPlace.TryPlaceThing(thingPlacementQueue.First(), OutputSlot, Map, ThingPlaceMode.Direct);
                 thingPlacementQueue.RemoveAt(0);
             }
             else if (thingPlacementQueue.Count > 0)
             {
                 foreach (var t in thingPlacementQueue)
                 {
-                    var thing = outputSlot.GetThingList(Map).Find(th => th.CanStackWith(t));
+                    var thing = OutputSlot.GetThingList(Map).Find(th => th.CanStackWith(t));
                     thing?.TryAbsorbStack(t, true);
                     if (t.Destroyed || t.stackCount == 0)
                     {
@@ -498,12 +519,12 @@ namespace ProjectSAL
         }
         
 
-        public void playSustainer()
+        public void PlaySustainer()
         {
             if (sustainer == null || sustainer.Ended)
             {
                 var soundInfo = SoundInfo.InMap(new TargetInfo(this), MaintenanceType.PerTick);
-                sustainer = soundOfCurrentRecipe.TrySpawnSustainer(soundInfo);
+                sustainer = SoundOfCurrentRecipe.TrySpawnSustainer(soundInfo);
             }
             else
             {
@@ -519,11 +540,11 @@ namespace ProjectSAL
 
         public bool ResetIfWorkTableIsNull()
         {
-            var isNull = workTable == null;
+            var isNull = WorkTable == null;
             if (isNull)
             {
                 DropAllThings();
-                resetRecipe();
+                ResetRecipe();
             }
             return isNull;
         }
@@ -532,19 +553,19 @@ namespace ProjectSAL
         {
 			if (thing == null) 
 			{
-                if (workTable == null)
+                if (WorkTable == null)
                 {
                     Log.Error("Tried to reserve workTable but workTable was null.");
                     return;
                 }
-                thing = workTable;
+                thing = WorkTable;
 			}
 			Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
 			if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(thing))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
 			else ProjectSAL_Utilities.Message("Could not reserve thing " + thing, 4);
         }
         
-        public void releaseAll()
+        public void ReleaseAll()
         {
         	Map.physicalInteractionReservationManager.ReleaseAllClaimedBy(buildingPawn);
         	Map.reservationManager.ReleaseAllClaimedBy(buildingPawn);
@@ -560,6 +581,7 @@ namespace ProjectSAL
             }
             if (thingRecord.Count == 0)
             {
+                if (currentRecipe.ingredients.Count > 0) Log.Warning("S.A.L.: Had no thingRecord of items being accepted, but crafting recipe has ingredients.");
                 return ThingMaker.MakeThing(ThingDefOf.Steel);
             }
             if (currentRecipe.productHasIngredientStuff)
@@ -642,37 +664,43 @@ namespace ProjectSAL
                 {
                     if (element.def.category == ThingCategory.Item && settings.AllowedToAccept(element))
                     {
-                        if (StoredThing != null)
-                        {
-                            if (StoredThing.CanStackWith(element))
-                            {
-                                //Verse.ThingUtility.TryAsborbStackNumToTake <- That's not a typo, that's an actual method. Seriously. Good thing it's fixed in A17, eh? (LudeonLeaks, 2017)
-                                var num = Mathf.Min(element.stackCount, Mathf.Min(limit, StoredThing.def.stackLimit) - StoredThing.stackCount);
-                                if (num > 0)
-                                {
-                                    var t = element.SplitOff(num);
-                                    StoredThing.TryAbsorbStack(t, true);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            var num = Mathf.Min(element.stackCount, limit);
-                            if (num == element.stackCount)
-                            {
-                                element.Position = Position;
-                            }
-                            else if (num > 0)
-                            {
-                                var t = element.SplitOff(num);
-                                GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Direct);
-                            }
-                        }
+                        TryStoreThing(element);
                         break;
                     }
                 }
             }
         }
+
+        public virtual void TryStoreThing(Thing element)
+        {
+            if (StoredThing != null)
+            {
+                if (StoredThing.CanStackWith(element))
+                {
+                    //Verse.ThingUtility.TryAsborbStackNumToTake <- That's not a typo, that's an actual method. Seriously. Good thing it's fixed in A17, eh? (LudeonLeaks, 2017)
+                    var num = Mathf.Min(element.stackCount, Mathf.Min(limit, StoredThing.def.stackLimit) - StoredThing.stackCount);
+                    if (num > 0)
+                    {
+                        var t = element.SplitOff(num);
+                        StoredThing.TryAbsorbStack(t, true);
+                    }
+                }
+            }
+            else
+            {
+                var num = Mathf.Min(element.stackCount, limit);
+                if (num == element.stackCount)
+                {
+                    element.Position = Position;
+                }
+                else if (num > 0)
+                {
+                    var t = element.SplitOff(num);
+                    GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Direct);
+                }
+            }
+        }
+
         public override void DrawExtraSelectionOverlays()
         {
             base.DrawExtraSelectionOverlays();
