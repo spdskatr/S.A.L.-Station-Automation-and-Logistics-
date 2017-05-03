@@ -21,10 +21,6 @@ namespace ProjectSAL
                 return ModsConfig.ActiveModsInLoadOrder.Any(d => d.Name == "SS Factory Framework");
             }
         }
-        public static _IngredientCount toSaveable(this IngredientCount old)
-        {
-            return new _IngredientCount(old.filter, old.GetBaseCount());
-        }
         /// <summary>
         /// If built using the DEBUG constant, it will log a message if value of importance >= minImportance.
         /// </summary>
@@ -64,21 +60,6 @@ namespace ProjectSAL
             }
             return basenum;
         }
-        /*public static bool IsWithinRange(this IntVec3 first, IntVec3 other, float range)
-        {
-            var offset = first - other;
-            var distance = Distance(offset.x, offset.z);
-            return distance < range + 0.001f;
-        }
-        /// <summary>
-        /// Simple distance formula calculation.
-        /// </summary>
-        public static float Distance(float a, float b)
-        {
-            var result = Mathf.Sqrt(Mathf.Pow(a, 2) + Mathf.Pow(b, 2));
-            Message(string.Format("Calculating distance. A: {0} B: {1} C: {2}", a, b, result), 6);
-            return result;
-        }*/
     }
     /// <summary>
     /// Programmer trick to save IngredientCount.
@@ -95,10 +76,13 @@ namespace ProjectSAL
         		return count;
         	}
         }
-        
+
+        /// <summary>
+        /// IMPORTANT DO NOT REMOVE
+        /// </summary>
         public _IngredientCount()
         {
-        	
+
         }
 
         public _IngredientCount(ThingFilter f, float c)
@@ -109,17 +93,8 @@ namespace ProjectSAL
 
         public void ExposeData()
         {
-            Scribe_Deep.LookDeep(ref filter, "filter");
-            Scribe_Values.LookValue(ref count, "count");
-        }
-        public IngredientCount toOriginal()
-        {
-            var New = new IngredientCount
-            {
-                filter = filter
-            };
-            New.SetBaseCount(count);
-            return New;
+            Scribe_Deep.Look(ref filter, "filter");
+            Scribe_Values.Look(ref count, "count");
         }
 		public override string ToString()
 		{
@@ -132,7 +107,21 @@ namespace ProjectSAL
 				")"
 			});
 		}
+        public static explicit operator IngredientCount(_IngredientCount ingredient)
+        {
+            var New = new IngredientCount
+            {
+                filter = ingredient.filter,
+            };
+            New.SetBaseCount(ingredient.count);
+            return New;
+        }
+        public static implicit operator _IngredientCount(IngredientCount old)
+        {
+            return new _IngredientCount(old.filter, old.GetBaseCount());
+        }
     }
+
     public class Dialog_SmartHopperSetTargetAmount : Dialog_Rename
     {
         protected Building_SmartHopper smartHopper;

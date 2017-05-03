@@ -27,13 +27,16 @@ using RimWorld;
  * Eject items in thingRecord if deconstructed----DONE
  * Edit defs: Not forbiddable, flickable----------DONE
  * Make smart hopper------------------------------DONE
- * Check for small volume
+ * Check for small volume-------------------------DONE
+ * Redo corpse calculations----------------------PENDING
+ * Add ingredients to unfinished items-----------PENDING
  * Patch for Mending
  * */
 namespace ProjectSAL
 {
     public class Building_Crafter : Building
     {
+        #region Fields
         public Rot4 rotInput = Rot4.South;
         public Rot4 rotOutput = Rot4.South;
         public RecipeDef currentRecipe;
@@ -45,8 +48,10 @@ namespace ProjectSAL
         public Pawn buildingPawn;
         [Unsaved]
         public Sustainer sustainer;
+        #endregion
 
-		public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
+        #region Properties 1
+        public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
 
 		public IntVec3 InputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
 
@@ -69,8 +74,10 @@ namespace ProjectSAL
         public Building_WorkTable WorkTable => Map.thingGrid.ThingsListAt(WorkTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out Building_WorkTable result) ? result : null;
 
 		public BillStack BillStack => WorkTable?.BillStack;
+        #endregion
 
-		protected bool OutputSlotOccupied => OutputSlot.GetFirstItem(Map) != null || OutputSlot.Impassable(Map);
+        #region Properties 2
+        protected bool OutputSlotOccupied => OutputSlot.GetFirstItem(Map) != null || OutputSlot.Impassable(Map);
         
         protected bool ShouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
         
@@ -96,12 +103,14 @@ namespace ProjectSAL
 		protected bool WorkTableIsDisabled => WorkTable != null && this.WorkTableisReservedByOther && WorkTableIsPoweredOff;
 
         protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) || (WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false);
+        #endregion
 
         //Constructors go here if needed
-        
-		public override void SpawnSetup(Map map)
+
+        #region Override methods
+        public override void SpawnSetup(Map map, bool respawningAfterLoad)
 		{
-			base.SpawnSetup(map);
+			base.SpawnSetup(map, respawningAfterLoad);
             if (buildingPawn == null)
             {
                 DoPawn();
@@ -121,15 +130,15 @@ namespace ProjectSAL
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Deep.LookDeep(ref buildingPawn, "pawn");
-            Scribe_Defs.LookDef(ref currentRecipe, "currentRecipe");
-            Scribe_Values.LookValue(ref workLeft, "workLeft");
-            Scribe_Values.LookValue(ref rotInput, "rotInput");
-            Scribe_Values.LookValue(ref rotOutput, "rotOutput");
-            Scribe_Values.LookValue(ref allowForbidden, "allowForbidden", true);
-            Scribe_Collections.LookList(ref ingredients, "ingredients", LookMode.Deep);
-            Scribe_Collections.LookList(ref thingRecord, "thingRecord", LookMode.Deep);
-            Scribe_Collections.LookList(ref thingPlacementQueue, "placementQueue", LookMode.Deep);
+            Scribe_Deep.Look(ref buildingPawn, "pawn");
+            Scribe_Defs.Look(ref currentRecipe, "currentRecipe");
+            Scribe_Values.Look(ref workLeft, "workLeft");
+            Scribe_Values.Look(ref rotInput, "rotInput");
+            Scribe_Values.Look(ref rotOutput, "rotOutput");
+            Scribe_Values.Look(ref allowForbidden, "allowForbidden", true);
+            Scribe_Collections.Look(ref ingredients, "ingredients", LookMode.Deep);
+            Scribe_Collections.Look(ref thingRecord, "thingRecord", LookMode.Deep);
+            Scribe_Collections.Look(ref thingPlacementQueue, "placementQueue", LookMode.Deep);
             if (buildingPawn == null)
             {
                 DoPawn();
@@ -204,32 +213,10 @@ namespace ProjectSAL
             if (ShouldDoWork && SoundOfCurrentRecipe != null && !WorkTableIsDisabled)
                 PlaySustainer();
             if (WorkTable != null && !Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) TryReserve();
-            if (Find.TickManager.TicksGame % 10 == 0)
-                AcceptItems();//once every 10 ticks
+            if (Find.TickManager.TicksGame % 35 == 0)
+                AcceptItems();//once every 35 ticks
             if (Find.TickManager.TicksGame % 60 == 0)
                 TickSecond();//once every 60 ticks
-        }
-
-        public virtual void TickSecond()
-        {
-            TryOutputItem();
-
-            if (ResetIfWorkTableIsNull())
-                return;
-            if (ShouldStartBill)
-                SetRecipe(BillStack.FirstShouldDoNow);
-            if (ShouldDoWork)
-            {
-                if (workLeft <= 0)
-                {
-                    ThingDef mainIngDef = CalculateDominantIngredient(currentRecipe, thingRecord).def;
-                    ProjectSAL_Utilities.Message("mainIngDef: " + mainIngDef.ToString(), 3);
-                    workLeft = currentRecipe.WorkAmountTotal(mainIngDef);
-                }
-                DoWork();
-            }
-            if (WorkDone)
-                TryMakeProducts();
         }
 
         public override void DrawExtraSelectionOverlays()
@@ -265,50 +252,46 @@ namespace ProjectSAL
 
         public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
         {
-        	ReleaseAll();
+            ReleaseAll();
             DropAllThings();
             base.Destroy(mode);
         }
-
-        public void DropAllThings()
+        #endregion
+        
+        public virtual void TickSecond()
         {
-            if (currentRecipe == null) return;
-            if (!currentRecipe.UsesUnfinishedThing)
+            TryOutputItem();
+
+            if (ResetIfWorkTableIsNull())
+                return;
+            if (ShouldStartBill)
+                SetRecipe(BillStack.FirstShouldDoNow);
+            if (ShouldDoWork)
             {
-                foreach (var t in thingRecord)
+                if (workLeft <= 0)
                 {
-                    if (t.Spawned)
-                    {
-                        Map.dynamicDrawManager.RegisterDrawable(t);
-                        var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
-                        var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
-                        list.Add(t);
-                        continue;
-                    }
-                    else GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Near);
+                    ThingDef mainIngDef = CalculateDominantIngredient(currentRecipe, thingRecord).def;
+                    ProjectSAL_Utilities.Message("mainIngDef: " + mainIngDef.ToString(), 3);
+                    workLeft = currentRecipe.WorkAmountTotal(mainIngDef);
                 }
+                DoWork();
             }
-            else
-            {
-                var stuff = (currentRecipe.unfinishedThingDef.MadeFromStuff) ? CalculateDominantIngredient(currentRecipe, thingRecord).def : null;
-                var unfinished = (UnfinishedThing)ThingMaker.MakeThing(currentRecipe.unfinishedThingDef, stuff);
-                unfinished.workLeft = workLeft;
-                GenPlace.TryPlaceThing(unfinished, Position, Map, ThingPlaceMode.Near);
-            }
-            thingRecord.Clear();
+            if (WorkDone)
+                TryMakeProducts();
         }
 
+        #region Item accepting calculations
         /// <summary>
         /// Accepts a new load of items into ingredient list
         /// </summary>
-        public void AcceptItems()
+        public virtual void AcceptItems()
         {
             ProjectSAL_Utilities.Message("Count of nextItems: " + NextItems.Count, 1);
             ProjectSAL_Utilities.Message("Count of ingredients: " + ingredients.Count, 1);
             NextItems.ForEach(AcceptEachItem);
         }
 
-        protected void AcceptEachItem(Thing t)
+        protected virtual void AcceptEachItem(Thing t)
         {
             if (t.TryGetComp<CompForbiddable>() != null 
                 && (!t.TryGetComp<CompForbiddable>()?.Forbidden ?? false
@@ -318,7 +301,7 @@ namespace ProjectSAL
             ingredients.ForEach(ingredient => AcceptEachIngredient(ingredient, t));
         }
 
-        protected void AcceptEachIngredient(_IngredientCount ingredient, Thing t)
+        protected virtual void AcceptEachIngredient(_IngredientCount ingredient, Thing t)
         {
         	if ((decimal)ingredient.count == 0)
                 return;
@@ -326,28 +309,27 @@ namespace ProjectSAL
             AcceptItemWithFilter(t, ingredient);
         }
 
-        protected void AcceptItemWithFilter(Thing t, _IngredientCount ingredient)
+        protected virtual void AcceptItemWithFilter(Thing t, _IngredientCount ingredient)
         {
             var bill = (WorkTable != null && BillStack != null) ? BillStack.FirstShouldDoNow : null;
-            if (bill.recipe != currentRecipe)
+            if (bill?.recipe != currentRecipe)
             {
                 ResetRecipe();
                 DropAllThings();
                 return;
             }
-            if (ingredient.filter.Allows(t) && bill.ingredientFilter.Allows(t))
+            if (ingredient.filter.Allows(t) && (bill?.ingredientFilter?.Allows(t) ?? true))
             {
                 ProcessItem(t, ingredient);
             }
         }
 
-        private void ProcessItem(Thing t, _IngredientCount ingredient)
+        protected virtual void ProcessItem(Thing t, _IngredientCount ingredient)
         {
-            //Used for nutrition calculations.
-            float basecount = ShouldUseNutritionMath(t, ingredient) ? t.def.ingestible.nutrition * t.stackCount : t.stackCount; 
-            if (ingredient.count >= basecount)
+            float baseCount = CalculateBaseCountFinalised(t, ingredient); 
+            if (ingredient.count >= baseCount)
             {
-                TakeItemWhenBaseCountDoesNotSatisfy(t, ingredient, basecount);
+                TakeItemWhenBaseCountDoesNotSatisfy(t, ingredient, baseCount);
             }
             else
             {
@@ -355,9 +337,9 @@ namespace ProjectSAL
             }
         }
 
-        private void SplitItemWhenBaseCountSatisfies(Thing t, _IngredientCount ingredient)
+        protected virtual void SplitItemWhenBaseCountSatisfies(Thing t, _IngredientCount ingredient)
         {
-            var countToSplitOff = Mathf.RoundToInt(ShouldUseNutritionMath(t, ingredient) ? ingredient.Count / t.def.ingestible.nutrition : ingredient.Count);
+            var countToSplitOff = CalculateIngredientIntFinalised(t, ingredient);
             if (countToSplitOff > 0)
             {
                 Thing dup = t.SplitOff(countToSplitOff);
@@ -367,19 +349,21 @@ namespace ProjectSAL
             ingredient.count = 0;
         }
 
-        private void TakeItemWhenBaseCountDoesNotSatisfy(Thing t, _IngredientCount ingredient, float basecount)
+        protected virtual void TakeItemWhenBaseCountDoesNotSatisfy(Thing t, _IngredientCount ingredient, float basecount)
         {
             Thing dup;
-            if (t is Corpse)
+            if (t is Corpse corpse)
             {
-                var corpse = t as Corpse;
                 corpse.Strip();
+                /*
                 Map.dynamicDrawManager.DeRegisterDrawable(t);
                 var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
                 var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
                 if (list.Contains(t)) list.Remove(t);
-                t.Position = Position;
+                t.Position = Position;*/
+                t.DeSpawn();
                 dup = t;
+                typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dup, (sbyte)-1);
             }
             else
             {
@@ -390,7 +374,9 @@ namespace ProjectSAL
             else thingRecord.Find(thing => t.def == thing.def);
             ingredient.count -= basecount;
         }
+        #endregion
 
+        #region Nutrition/Small volume calculations
         protected static bool ShouldUseNutritionMath(Thing t, _IngredientCount ingredient)
         {
             return (t.def.ingestible?.nutrition ?? 0f) > 0f && !(t is Corpse) && IngredientFilterHasNutrition(ingredient.filter);
@@ -410,13 +396,34 @@ namespace ProjectSAL
             }
             return false;
         }
-
-        protected static Thing MakeDuplicateOf(Thing t, int count)
+        protected static int CalculateIngredientIntFinalised(Thing item, _IngredientCount ingredient)
         {
-            var duplicate = ThingMaker.MakeThing(t.def, t.Stuff);
-            duplicate.stackCount = count;
-            return duplicate;
+            float basecount = ingredient.count;
+            if (ShouldUseNutritionMath(item, ingredient))
+            {
+                basecount /= item.def.ingestible.nutrition;
+            }
+            if (item.def.smallVolume)
+            {
+                basecount /= 0.05f;
+            }
+            return Mathf.RoundToInt(basecount);
         }
+
+        protected static float CalculateBaseCountFinalised(Thing item, _IngredientCount ingredient)
+        {
+            float basecount = item.stackCount;
+            if (ShouldUseNutritionMath(item, ingredient))
+            {
+                basecount *= item.def.ingestible.nutrition;
+            }
+            if (item.def.smallVolume)
+            {
+                basecount *= 0.05f;
+            }
+            return basecount;
+        }
+        #endregion
 
         public virtual void DoWork(int interval = 60)
         {
@@ -433,23 +440,6 @@ namespace ProjectSAL
                     workLeft = 0f;
                 }
             }
-        }
-        public virtual void TryMakeProducts()
-        {
-            if (currentRecipe == null)
-            {
-                Log.Warning(ToString() + " had workLeft > 0 when the currentRecipe is NULL. Resetting. (workLeft probably isn't synchronised with recipe. Use resetRecipe() to set currentRecipe to NULL and to synchronise workLeft.)");
-                ResetRecipe();
-                return;
-            }
-            foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
-            {
-                thingPlacementQueue.Add(obj);
-                ProjectSAL_Utilities.Message("Thing added to queue. Thing was: " + obj + " x " + obj.stackCount, 2);
-            }
-            ProjectSAL_Utilities.Message("Current thingPlacementQueue length is: " + thingPlacementQueue.Count, 2);
-            FindBillAndChangeRepeatCount(BillStack, currentRecipe);
-            ResetRecipe();
         }
 
         /// <summary>
@@ -483,9 +473,10 @@ namespace ProjectSAL
             ProjectSAL_Utilities.Message("Setting recipe: " + b, 3);
             currentRecipe = b.recipe;
             ingredients = new List<_IngredientCount>();
-            (currentRecipe.ingredients ?? new List<IngredientCount>()).ForEach(ing => ingredients.Add(ing.toSaveable()));
+            (currentRecipe.ingredients ?? new List<IngredientCount>()).ForEach(ing => ingredients.Add(ing));//implicit cast
         }
 
+        #region Resetting
         public virtual void ResetRecipe()
         {
             currentRecipe = null;
@@ -495,6 +486,59 @@ namespace ProjectSAL
             workLeft = 0;
             ReleaseAll();
         }
+
+        public void DropAllThings()
+        {
+            if (currentRecipe == null) return;
+            if (!currentRecipe.UsesUnfinishedThing)
+            {
+                foreach (var t in thingRecord)
+                {
+                    if (!t.Spawned) GenPlace.TryPlaceThing(t, Position, Map, ThingPlaceMode.Near);
+                }
+            }
+            else
+            {
+                var stuff = (currentRecipe.unfinishedThingDef.MadeFromStuff) ? CalculateDominantIngredient(currentRecipe, thingRecord).def : null;
+                var unfinished = (UnfinishedThing)ThingMaker.MakeThing(currentRecipe.unfinishedThingDef, stuff);
+                unfinished.workLeft = workLeft;
+                unfinished.ingredients = thingRecord;
+                GenPlace.TryPlaceThing(unfinished, Position, Map, ThingPlaceMode.Near);
+            }
+            thingRecord.Clear();
+        }
+
+        public bool ResetIfWorkTableIsNull()
+        {
+            var isNull = WorkTable == null;
+            if (isNull)
+            {
+                DropAllThings();
+                ResetRecipe();
+            }
+            return isNull;
+        }
+        #endregion
+
+        #region Products
+        public virtual void TryMakeProducts()
+        {
+            if (currentRecipe == null)
+            {
+                Log.Warning(ToString() + " had workLeft > 0 when the currentRecipe is NULL. Resetting. (workLeft probably isn't synchronised with recipe. Use resetRecipe() to set currentRecipe to NULL and to synchronise workLeft.)");
+                ResetRecipe();
+                return;
+            }
+            foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
+            {
+                thingPlacementQueue.Add(obj);
+                ProjectSAL_Utilities.Message("Thing added to queue. Thing was: " + obj + " x " + obj.stackCount, 2);
+            }
+            ProjectSAL_Utilities.Message("Current thingPlacementQueue length is: " + thingPlacementQueue.Count, 2);
+            FindBillAndChangeRepeatCount(BillStack, currentRecipe);
+            ResetRecipe();
+        }
+
         public virtual void TryOutputItem()
         {
             ProjectSAL_Utilities.Message(string.Format("ThingPlacementQueue length: {0}, OutputSlotOccupied: {1}", thingPlacementQueue.Count, OutputSlotOccupied), 1);
@@ -517,8 +561,9 @@ namespace ProjectSAL
                 }
             }
         }
-        
+        #endregion
 
+        #region Sound-based
         public void PlaySustainer()
         {
             if (sustainer == null || sustainer.Ended)
@@ -537,18 +582,9 @@ namespace ProjectSAL
             if (t.def.soundDrop != null)
                 t.def.soundDrop.PlayOneShot(SoundInfo.InMap(new TargetInfo(this)));
         }
+        #endregion
 
-        public bool ResetIfWorkTableIsNull()
-        {
-            var isNull = WorkTable == null;
-            if (isNull)
-            {
-                DropAllThings();
-                ResetRecipe();
-            }
-            return isNull;
-        }
-
+        #region Reservation
         public void TryReserve(Thing thing = null)
         {
 			if (thing == null) 
@@ -570,7 +606,9 @@ namespace ProjectSAL
         	Map.physicalInteractionReservationManager.ReleaseAllClaimedBy(buildingPawn);
         	Map.reservationManager.ReleaseAllClaimedBy(buildingPawn);
         }
+        #endregion
 
+        #region Static logic helpers
         public static Thing CalculateDominantIngredient(RecipeDef currentRecipe, List<Thing> thingRecord)
         {
             var stuffs = thingRecord.Where(t => t.def.IsStuff);
@@ -600,11 +638,11 @@ namespace ProjectSAL
             if (billStack != null && billStack.Bills != null)
             {
                 var billrepeater = billStack.Bills.OfType<Bill_Production>().ToList().Find(b => b.ShouldDoNow() && b.recipe == currentRecipe);
-                if (billrepeater != null && billrepeater.repeatMode == BillRepeatMode.RepeatCount)
+                if (billrepeater != null && billrepeater.repeatMode == BillRepeatModeDefOf.RepeatCount)
                     billrepeater.repeatCount -= 1;
             }
         }
-
+        #endregion
     }
     public class Building_SmartHopper : Building_Storage
     {
@@ -650,7 +688,7 @@ namespace ProjectSAL
         public override void ExposeData()
         {
             base.ExposeData();
-            Scribe_Values.LookValue(ref limit, "limit", 75);
+            Scribe_Values.Look(ref limit, "limit", 75);
         }
 
         public override string GetInspectString() => base.GetInspectString() + "SmartHopper_Limit".Translate(limit);
@@ -706,6 +744,7 @@ namespace ProjectSAL
             base.DrawExtraSelectionOverlays();
             GenDraw.DrawFieldEdges(CellsToSelect.ToList(), Color.green);
         }
+
         public override IEnumerable<Gizmo> GetGizmos()
         {
             foreach (var g in base.GetGizmos())

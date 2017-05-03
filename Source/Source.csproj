@@ -26,7 +26,8 @@
     <DebugType>None</DebugType>
     <Optimize>False</Optimize>
     <OutputPath>..\Assemblies\</OutputPath>
-    <DefineConstants>DEBUG</DefineConstants>
+    <DefineConstants>
+    </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
