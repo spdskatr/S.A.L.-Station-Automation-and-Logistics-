@@ -1,13 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
   <AdjustDirection_Output>Adjust output direction</AdjustDirection_Output>
-  <AdjustDirection_Input>Adjust input direction</AdjustDirection_Input>
   <AdjustDirection_Desc>Click to rotate clockwise. Current direction is: {0}</AdjustDirection_Desc>
   <SALToggleForbidden>Toggle allow forbidden</SALToggleForbidden>
   <SALToggleForbidden_Desc>Allow/Disallow the auto-assembler to take forbidden items.</SALToggleForbidden_Desc>
   <SALCancelBills>Cancel bills</SALCancelBills>
   <SALCancelBills_Desc>Click to make S.A.L. building drop its items and cancel bills.</SALCancelBills_Desc>
-  <SALInspect_CurrentConfig>Current configuration: Input: {0}, Output: {1}</SALInspect_CurrentConfig>
+  <SALInspect_CurrentConfig>Current configuration: Output: {0}</SALInspect_CurrentConfig>
   <SALInspect_WorkLeft>Work left: {0}</SALInspect_WorkLeft>
   <SALInspect_PowerOff>Power is off.</SALInspect_PowerOff>
   <SALInspect_ResourcesNeeded>Resources: </SALInspect_ResourcesNeeded>
@@ -20,4 +19,6 @@
   <SmartHopper_SetTargetAmount>Set target amount</SmartHopper_SetTargetAmount>
   <SmartHopper_Limit>Current item limit: {0}</SmartHopper_Limit>
   <SALInspect_PlacementQueue>Recipe products waiting to be placed: {0}</SALInspect_PlacementQueue>
+  <SALAssignTimeTable>Edit active hours</SALAssignTimeTable>
+  <SALAssignTimeTable_Desc>Opens the timetable interface. Left click a cell to set to WORK, right click a cell to set to SLEEP</SALAssignTimeTable_Desc>
 </LanguageData>

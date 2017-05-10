@@ -11,33 +11,41 @@ using RimWorld;
 //S.A.L. | Station Automation and Logistics
 /* To-do: 
  *                                                Done?
- * Reserve workbench------------------------------DONE
- * Resolve pawn error on map load-----------------DONE
- * Check if workbench has power-------------------DONE
- * Take bill off bill stack once done-------------DONE
- * change colour of ouput direction in Draw()-----DONE
- * Make them be bad at art------------------------DONE
- * Allow/disallow taking forbidden items----------DONE
- * Make sound while crafting----------------------DONE
- * Make sound when sucking item in----------------DONE
- * Check if work table is deconstructed-----------DONE
- * Clear reservation if power off-----------------DONE
- * Customisable pawns via defs; skills------------DONE
- * Sort out problem with nutrition/cooking--------DONE
- * Eject items in thingRecord if deconstructed----DONE
- * Edit defs: Not forbiddable, flickable----------DONE
- * Make smart hopper------------------------------DONE
- * Check for small volume-------------------------DONE
- * Redo corpse calculations----------------------PENDING
- * Add ingredients to unfinished items-----------PENDING
+ * Reserve workbench----------------------------------DONE
+ * Resolve pawn error on map load---------------------DONE
+ * Check if workbench has power-----------------------DONE
+ * Take bill off bill stack once done-----------------DONE
+ * change colour of ouput direction in Draw()---------DONE
+ * Make them be bad at art----------------------------DONE
+ * Allow/disallow taking forbidden items--------------DONE
+ * Make sound while crafting--------------------------DONE
+ * Make sound when sucking item in--------------------DONE
+ * Check if work table is deconstructed---------------DONE
+ * Clear reservation if power off---------------------DONE
+ * Customisable pawns via defs; skills----------------DONE
+ * Sort out problem with nutrition/cooking------------DONE
+ * Eject items in thingRecord if deconstructed--------DONE
+ * Edit defs: Not forbiddable, flickable--------------DONE
+ * Make smart hopper----------------------------------DONE
+ * Check for small volume-----------------------------DONE
+ * Redo corpse calculations---------------------------DONE
+ * Add ingredients to unfinished items---------------PENDING
  * Patch for Mending
+ * Maintenance intervals-----------------------------PENDING
+ * Move AssemblerDef to a ModExtension---------------PENDING
+ *From xlilcasper (Ludeon Forums)
+ * Let items get accepted from adjacent cells---------DONE
+ * Check if colony has enough resources for bill
+ *From Kadan Joelavich (Steam)
+ * "This may not be possible, but would there 
+ * be any way to have their global work speed 
+ * factor in the material they are make from?
  * */
 namespace ProjectSAL
 {
     public class Building_Crafter : Building
     {
         #region Fields
-        public Rot4 rotInput = Rot4.South;
         public Rot4 rotOutput = Rot4.South;
         public RecipeDef currentRecipe;
         public float workLeft;
@@ -48,23 +56,29 @@ namespace ProjectSAL
         public Pawn buildingPawn;
         [Unsaved]
         public Sustainer sustainer;
+        [Unsaved]
+        bool cachedShouldActivate = true;
         #endregion
 
         #region Properties 1
-        public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
+        public ModExtension_Assembler Extension => def.GetModExtension<ModExtension_Assembler>();
 
-		public IntVec3 InputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotInput);
+        public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
 
         public List<Thing> NextItems
         {
             get
             {
                 var things = new List<Thing>();
-                InputSlot.GetThingList(Map).ForEach(t =>
+                foreach (var c in GenAdj.CellsAdjacent8Way(this))
                 {
-                    if (t.def.category == ThingCategory.Item)
-                        things.Add(t);
-                });
+                    foreach (var t in c.GetThingList(Map))
+                    {
+                        if (t.def.category == ThingCategory.Item)
+                            things.Add(t);
+                    }
+                }
+                
                 return things;
             }
         }
@@ -79,9 +93,11 @@ namespace ProjectSAL
         #region Properties 2
         protected bool OutputSlotOccupied => OutputSlot.GetFirstItem(Map) != null || OutputSlot.Impassable(Map);
         
-        protected bool ShouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0);
+        protected bool ShouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0) && ShouldDoWorkInCurrentTimeAssignment;
         
 		protected bool ShouldStartBill => currentRecipe == null && BillStack != null && BillStack.AnyShouldDoNow;
+
+        protected bool ShouldDoWorkInCurrentTimeAssignment => buildingPawn.timetable.times[GenLocalDate.HourOfDay(this)] != TimeAssignmentDefOf.Sleep;
 
 		protected bool WorkDone => currentRecipe != null && ShouldDoWork && (int)workLeft == 0;
 
@@ -100,9 +116,9 @@ namespace ProjectSAL
         /// <summary>
         /// If worktable is reserved by someone else, or dependent on power and has no power, return false
         /// </summary>
-		protected bool WorkTableIsDisabled => WorkTable != null && this.WorkTableisReservedByOther && WorkTableIsPoweredOff;
+		protected bool WorkTableIsDisabled => WorkTable != null && WorkTableisReservedByOther && WorkTableIsPoweredOff;
 
-        protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) || (WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false);
+        protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) && (!(WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false));
         #endregion
 
         //Constructors go here if needed
@@ -119,11 +135,10 @@ namespace ProjectSAL
             else
             {
                 var fieldInfo = typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance);
-                var positionInfo = typeof(Thing).GetField("positionInt", BindingFlags.NonPublic | BindingFlags.Instance);
                 //Assign Pawn's mapIndexOrState to building's mapIndexOrState
                 fieldInfo.SetValue(buildingPawn, fieldInfo.GetValue(this));
                 //Assign Pawn's position without nasty errors
-                positionInfo.SetValue(buildingPawn, Position);
+                buildingPawn.SetPositionDirect(Position);
             }
         }
 
@@ -133,7 +148,6 @@ namespace ProjectSAL
             Scribe_Deep.Look(ref buildingPawn, "pawn");
             Scribe_Defs.Look(ref currentRecipe, "currentRecipe");
             Scribe_Values.Look(ref workLeft, "workLeft");
-            Scribe_Values.Look(ref rotInput, "rotInput");
             Scribe_Values.Look(ref rotOutput, "rotOutput");
             Scribe_Values.Look(ref allowForbidden, "allowForbidden", true);
             Scribe_Collections.Look(ref ingredients, "ingredients", LookMode.Deep);
@@ -154,17 +168,9 @@ namespace ProjectSAL
             {
                 icon = ContentFinder<Texture2D>.Get("UI/Misc/Compass"),
                 defaultLabel = "AdjustDirection_Output".Translate(),
-                defaultDesc = "AdjustDirection_Desc".Translate(rotOutput.asCompassDirection()),
+                defaultDesc = "AdjustDirection_Desc".Translate(rotOutput.AsCompassDirection()),
                 activateSound = SoundDefOf.Click,
                 action = () => rotOutput.Rotate(RotationDirection.Clockwise)
-            };
-            yield return new Command_Action
-            {
-                icon = ContentFinder<Texture2D>.Get("UI/Misc/Compass"),
-                defaultLabel = "AdjustDirection_Input".Translate(),
-                defaultDesc = "AdjustDirection_Desc".Translate(rotInput.asCompassDirection()),
-                activateSound = SoundDefOf.Click,
-                action = () => rotInput.Rotate(RotationDirection.Clockwise)
             };
             yield return new Command_Toggle
             {
@@ -186,6 +192,13 @@ namespace ProjectSAL
                     ResetRecipe();
                 }
             };
+            yield return new Command_Action
+            {
+                defaultLabel = "SALAssignTimeTable".Translate(),
+                defaultDesc = "SALAssignTimeTable_Desc".Translate(),
+                icon = ContentFinder<Texture2D>.Get("EditActiveHours"),
+                action = () => Find.WindowStack.Add(new Dialog_SALTimeTable(buildingPawn))
+            };
             if (Prefs.DevMode)
             {
                 yield return new Command_Action
@@ -204,12 +217,15 @@ namespace ProjectSAL
         public override void Tick()
         {
             base.Tick();
-			if (!GetComp<CompPowerTrader>().PowerOn) 
-			{
-				if (Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) ReleaseAll();
-				ProjectSAL_Utilities.Message("Reset reservations.", 4);
-				return;
-			}
+            if (Find.TickManager.TicksGame % 10 == 0)
+            {
+                if (!ShouldActivate()) return;
+            }
+            else
+            {
+                if (!cachedShouldActivate) return;
+            }
+
             if (ShouldDoWork && SoundOfCurrentRecipe != null && !WorkTableIsDisabled)
                 PlaySustainer();
             if (WorkTable != null && !Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) TryReserve();
@@ -219,10 +235,38 @@ namespace ProjectSAL
                 TickSecond();//once every 60 ticks
         }
 
+        public bool ShouldActivate()
+        {
+            if (WorkTableIsDisabled || !ShouldDoWorkInCurrentTimeAssignment)
+            {
+                if (Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) ReleaseAll();
+                var powerComp = GetComp<CompPowerTrader>();
+                //Change to low power
+                if (powerComp != null)
+                {
+                    Log.Message("Setting to low power.");
+                    powerComp.powerOutputInt = -Extension.powerUsageLowPower;
+                }
+                cachedShouldActivate = false;
+                return false;
+            }
+            else
+            {
+                //Restore high power
+                var powerComp = GetComp<CompPowerTrader>();
+                if (powerComp != null)
+                {
+                    powerComp.powerOutputInt = -def.GetCompProperties<CompProperties_Power>().basePowerConsumption;
+                }
+            }
+            cachedShouldActivate = true;
+            return true;
+        }
+
         public override void DrawExtraSelectionOverlays()
         {
             base.DrawExtraSelectionOverlays();
-            GenDraw.DrawFieldEdges(new List<IntVec3> { InputSlot });
+            GenDraw.DrawFieldEdges(GenAdj.CellsAdjacent8Way(this).ToList());
             GenDraw.DrawFieldEdges(new List<IntVec3> { OutputSlot }, Color.green);
             Graphics.DrawMesh(MeshPool.plane10, WorkTableCell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), Quaternion.identity, GenDraw.InteractionCellMaterial, 0);
         }
@@ -231,7 +275,7 @@ namespace ProjectSAL
         {
             var stringBuilder = new StringBuilder();
             stringBuilder.Append(base.GetInspectString());
-            stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotInput.asCompassDirection(), rotOutput.asCompassDirection()));
+            stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotOutput.AsCompassDirection()));
             stringBuilder.AppendLine("SALInspect_WorkLeft".Translate(workLeft.ToStringWorkAmount()));
             stringBuilder.AppendLine("SALInspect_PlacementQueue".Translate(thingPlacementQueue.Count));
             if (!GetComp<CompPowerTrader>().PowerOn)
@@ -434,7 +478,11 @@ namespace ProjectSAL
 			} 
             if (workLeft > 0)
             {
-                workLeft -= interval * currentRecipe.workSpeedStat.calculateCraftingSpeedFactor(buildingPawn);
+                //Skill factors for each skill are calculated in this method here V
+                float skillFactor = currentRecipe.workSpeedStat.CalculateCraftingSpeedFactor(buildingPawn, Extension);
+
+                float extraFactor = Extension.globalFactor;
+                workLeft -= interval * skillFactor * extraFactor;
                 if (workLeft <= 0f)
                 {
                     workLeft = 0f;
@@ -449,13 +497,13 @@ namespace ProjectSAL
         {
             Pawn p = PawnGenerator.GeneratePawn(PawnKindDefOf.Slave, Faction);
             p.Name = new NameTriple(LabelCap, "SAL_Name".Translate(), GetUniqueLoadID());
+            //Assign skills
             foreach (var s in p.skills.skills)
             {
             	int level = 5;
-            	var defAssembler = def as AssemblerDef;
-        		if (defAssembler != null)
+        		if (Extension != null)
         		{
-        		    level = defAssembler.FindSkillAndGetLevel(s.def);
+        		    level = Extension.FindSkillAndGetLevel(s.def);
         		}
                 s.levelInt = level;
                 ProjectSAL_Utilities.Message("Successfully assigned level " + level + " for " + s.def.defName + " to buildingPawn.", 5);
@@ -465,6 +513,12 @@ namespace ProjectSAL
             fieldInfo.SetValue(p, fieldInfo.GetValue(this));
             //Assign Pawn's position without nasty errors
             p.SetPositionDirect(Position);
+            //Pawn work-related stuffs
+            for (int i = 0; i < 24; i++)
+            {
+                p.timetable.SetAssignment(i, TimeAssignmentDefOf.Work);
+            }
+
             buildingPawn = p;
         }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
-  <ProjectSAL.AssemblerDef>
+  <ThingDef>
     <category>Building</category>
     <thingClass>ProjectSAL.Building_Crafter</thingClass>
     <soundImpactDefault>BulletImpactMetal</soundImpactDefault>
@@ -22,6 +22,7 @@
     <blockWind>true</blockWind>
     <castEdgeShadows>false</castEdgeShadows>
     <scatterableOnMapGen>false</scatterableOnMapGen>
+    <minifiedDef>MinifiedFurniture</minifiedDef>
     <fillPercent>1</fillPercent>
     <blockLight>true</blockLight>
     <statBases>
@@ -62,26 +63,32 @@
     <researchPrerequisites>
       <li>ShipBasics</li>
     </researchPrerequisites>
-	<skills>
-  	  <li>
-		<skillDef>Crafting</skillDef>
-		<level>10</level>
-	  </li>
-  	  <li>
-		<skillDef>Cooking</skillDef>
-		<level>8</level>
-	  </li>
-  	  <li>
-		<skillDef>Medicine</skillDef>
-		<level>4</level>
-	  </li>
-  	  <li>
-		<skillDef>Artistic</skillDef>
-		<level>0</level>
-	  </li>
-  	</skills>
-  </ProjectSAL.AssemblerDef>
-  <ProjectSAL.AssemblerDef>
+    <modExtensions>
+      <li Class="ProjectSAL.ModExtension_Assembler">
+        <powerUsageLowPower>50</powerUsageLowPower>
+        <globalFactor>1</globalFactor>
+        <skills>
+          <li>
+            <skillDef>Crafting</skillDef>
+            <level>10</level>
+          </li>
+          <li>
+            <skillDef>Cooking</skillDef>
+            <level>8</level>
+          </li>
+          <li>
+            <skillDef>Medicine</skillDef>
+            <level>4</level>
+          </li>
+          <li>
+            <skillDef>Artistic</skillDef>
+            <level>0</level>
+          </li>
+        </skills>
+      </li>
+    </modExtensions>
+  </ThingDef>
+  <ThingDef>
     <category>Building</category>
     <thingClass>ProjectSAL.Building_Crafter</thingClass>
     <soundImpactDefault>BulletImpactMetal</soundImpactDefault>
@@ -143,25 +150,32 @@
     <researchPrerequisites>
       <li>ShipBasics</li>
     </researchPrerequisites>
-	<skills>
-  	  <li>
-		<skillDef>Crafting</skillDef>
-		<level>8</level>
-	  </li>
-  	  <li>
-		<skillDef>Cooking</skillDef>
-		<level>12</level>
-	  </li>
-  	  <li>
-		<skillDef>Medicine</skillDef>
-		<level>4</level>
-	  </li>
-  	  <li>
-		<skillDef>Artistic</skillDef>
-		<level>0</level>
-	  </li>
-  	</skills>
-  </ProjectSAL.AssemblerDef>
+    <modExtensions>
+      <li Class="ProjectSAL.ModExtension_Assembler">
+        <powerUsageLowPower>50</powerUsageLowPower>
+        <globalFactor>1</globalFactor>
+        <skills>
+          <li>
+            <skillDef>Crafting</skillDef>
+            <level>8</level>
+          </li>
+          <li>
+            <skillDef>Cooking</skillDef>
+            <level>12</level>
+            <workSpeedFactorExtra>1.25</workSpeedFactorExtra>
+          </li>
+          <li>
+            <skillDef>Medicine</skillDef>
+            <level>4</level>
+          </li>
+          <li>
+            <skillDef>Artistic</skillDef>
+            <level>0</level>
+          </li>
+        </skills>
+      </li>
+    </modExtensions>
+  </ThingDef>
   <ThingDef Name="BuildingBase" Abstract="True">
     <category>Building</category>
     <thingClass>Building</thingClass>

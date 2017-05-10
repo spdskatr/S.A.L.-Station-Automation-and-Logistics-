@@ -33,7 +33,7 @@ namespace ProjectSAL
         /// <summary>
         /// Returns current Rot4 as a compass direction.
         /// </summary>
-        public static string asCompassDirection(this Rot4 rot)
+        public static string AsCompassDirection(this Rot4 rot)
         {
             switch (rot.AsByte)
             {
@@ -49,14 +49,16 @@ namespace ProjectSAL
                     return "SAL_InvalidDirection".Translate();
             }
         }
-        public static float calculateCraftingSpeedFactor(this StatDef workSpeedStat, Pawn pawn)
+        public static float CalculateCraftingSpeedFactor(this StatDef workSpeedStat, Pawn pawn, ModExtension_Assembler extension)
         {
             if (workSpeedStat == null || pawn == null) return 1f;
         	float basenum = workSpeedStat.defaultBaseValue;
             List<SkillNeed> skillNeedFactors = workSpeedStat.skillNeedFactors ?? new List<SkillNeed>();
             for (int i = 0; i < skillNeedFactors.Count; i++) 
         	{
-        		basenum *= skillNeedFactors[i].FactorFor(pawn);
+                var skillNeed = skillNeedFactors[i];
+                var extraFactor = extension.skills.Find(s => s.skillDef == skillNeed.skill)?.workSpeedFactorExtra ?? 1;
+                basenum *= (skillNeed.FactorFor(pawn) * extraFactor);
             }
             return basenum;
         }
@@ -119,23 +121,6 @@ namespace ProjectSAL
         public static implicit operator _IngredientCount(IngredientCount old)
         {
             return new _IngredientCount(old.filter, old.GetBaseCount());
-        }
-    }
-
-    public class Dialog_SmartHopperSetTargetAmount : Dialog_Rename
-    {
-        protected Building_SmartHopper smartHopper;
-        public Dialog_SmartHopperSetTargetAmount(Building_SmartHopper building)
-        {
-            smartHopper = building;
-        }
-        protected override AcceptanceReport NameIsValid(string name)
-        {
-            return int.TryParse(name, out int i);
-        }
-        protected override void SetName(string name)
-        {
-            smartHopper.limit = int.Parse(name);
         }
     }
 }
