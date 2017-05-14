@@ -21,6 +21,10 @@ namespace ProjectSAL
                 return ModsConfig.ActiveModsInLoadOrder.Any(d => d.Name == "SS Factory Framework");
             }
         }
+        public static bool FuzzyCompareFloat(float a, float b, float marginOfError)
+        {
+            return Mathf.Abs(a - b) < marginOfError;
+        }
         /// <summary>
         /// If built using the DEBUG constant, it will log a message if value of importance >= minImportance.
         /// </summary>

@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		About\About.xml = About\About.xml
 		Languages\English\Keyed\AllKeyed.xml = Languages\English\Keyed\AllKeyed.xml
+		Defs\DesignationCategories.xml = Defs\DesignationCategories.xml
+		Defs\Research.xml = Defs\Research.xml
 		Defs\ThingDefs_Buildings.xml = Defs\ThingDefs_Buildings.xml
 	EndProjectSection
 EndProject

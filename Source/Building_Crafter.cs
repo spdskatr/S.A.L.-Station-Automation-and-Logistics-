@@ -10,7 +10,7 @@ using RimWorld;
 
 //S.A.L. | Station Automation and Logistics
 /* To-do: 
- *                                                Done?
+ *                                                    Done?
  * Reserve workbench----------------------------------DONE
  * Resolve pawn error on map load---------------------DONE
  * Check if workbench has power-----------------------DONE
@@ -29,17 +29,19 @@ using RimWorld;
  * Make smart hopper----------------------------------DONE
  * Check for small volume-----------------------------DONE
  * Redo corpse calculations---------------------------DONE
- * Add ingredients to unfinished items---------------PENDING
+ * Add ingredients to unfinished items----------------DONE
  * Patch for Mending
- * Maintenance intervals-----------------------------PENDING
- * Move AssemblerDef to a ModExtension---------------PENDING
+ * Maintenance intervals------------------------------DONE
+ * Move AssemblerDef to a ModExtension----------------DONE
+ * Tiered crafters-----------------------------------PENDING
  *From xlilcasper (Ludeon Forums)
  * Let items get accepted from adjacent cells---------DONE
  * Check if colony has enough resources for bill
  *From Kadan Joelavich (Steam)
  * "This may not be possible, but would there 
  * be any way to have their global work speed 
- * factor in the material they are make from?
+ * factor in the material they are make from?--------PENDING
+ * Rework smart hopper
  * */
 namespace ProjectSAL
 {
@@ -119,11 +121,41 @@ namespace ProjectSAL
 		protected bool WorkTableIsDisabled => WorkTable != null && WorkTableisReservedByOther && WorkTableIsPoweredOff;
 
         protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) && (!(WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false));
+
+        /// <summary>
+        /// If worktable has no bolls that we should do now, return true
+        /// </summary>
+        protected bool WorkTableIsDormant => !(BillStack?.AnyShouldDoNow ?? false);
         #endregion
 
         //Constructors go here if needed
 
         #region Override methods
+
+        public override IEnumerable<StatDrawEntry> SpecialDisplayStats
+        {
+            get
+            {
+                var extensionSkills = Extension.skills.ListFullCopy();
+                foreach (StatDrawEntry stat in base.SpecialDisplayStats)
+                    yield return stat;
+                foreach (var skill in DefDatabase<SkillDef>.AllDefs)
+                {
+                    foreach (SkillLevel skillLevel in extensionSkills)
+                    {
+                        if (skillLevel.skillDef == skill)
+                        {
+                            yield return new StatDrawEntry(StatCategoryDefOf.PawnMisc, skillLevel.skillDef.label, skillLevel.ToString());
+                            extensionSkills.Remove(skillLevel);
+                            goto SkillRecorded;
+                        }
+                    }
+                    yield return new StatDrawEntry(StatCategoryDefOf.PawnMisc, skill.label, Extension.defaultSkillLevel.ToString());
+                    SkillRecorded:;
+                }
+            }
+        }
+
         public override void SpawnSetup(Map map, bool respawningAfterLoad)
 		{
 			base.SpawnSetup(map, respawningAfterLoad);
@@ -217,7 +249,7 @@ namespace ProjectSAL
         public override void Tick()
         {
             base.Tick();
-            if (Find.TickManager.TicksGame % 10 == 0)
+            if (Find.TickManager.TicksGame % 30 == 0)
             {
                 if (!ShouldActivate()) return;
             }
@@ -237,14 +269,13 @@ namespace ProjectSAL
 
         public bool ShouldActivate()
         {
-            if (WorkTableIsDisabled || !ShouldDoWorkInCurrentTimeAssignment)
+            if (!ShouldDoWorkInCurrentTimeAssignment || WorkTableIsDisabled || WorkTableIsDormant)
             {
                 if (Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) ReleaseAll();
                 var powerComp = GetComp<CompPowerTrader>();
                 //Change to low power
                 if (powerComp != null)
                 {
-                    Log.Message("Setting to low power.");
                     powerComp.powerOutputInt = -Extension.powerUsageLowPower;
                 }
                 cachedShouldActivate = false;
@@ -476,13 +507,20 @@ namespace ProjectSAL
 				ReleaseAll();
 				return;
 			} 
+            else
+            {
+                TryReserve();
+            }
             if (workLeft > 0)
             {
-                //Skill factors for each skill are calculated in this method here V
+                //Skill factors for each skill are calculated in CalculateCraftingSpeedFactor
                 float skillFactor = currentRecipe.workSpeedStat.CalculateCraftingSpeedFactor(buildingPawn, Extension);
-
+                
+                //Factor from stuff, as well as extra work speed. The lighter the mass of the stuff it's made out of, the faster it crafts.
+                //Steel is the base, so the factor of steel must equal 1
+                float factorFromStuff = (Stuff.statBases.Find(s => s.stat == StatDefOf.Mass)?.value ?? 0.5f) * 2;
                 float extraFactor = Extension.globalFactor;
-                workLeft -= interval * skillFactor * extraFactor;
+                workLeft -= (interval * skillFactor * extraFactor / factorFromStuff);
                 if (workLeft <= 0f)
                 {
                     workLeft = 0f;
@@ -500,11 +538,7 @@ namespace ProjectSAL
             //Assign skills
             foreach (var s in p.skills.skills)
             {
-            	int level = 5;
-        		if (Extension != null)
-        		{
-        		    level = Extension.FindSkillAndGetLevel(s.def);
-        		}
+        		int level = Extension.FindSkillAndGetLevel(s.def, Extension.defaultSkillLevel);
                 s.levelInt = level;
                 ProjectSAL_Utilities.Message("Successfully assigned level " + level + " for " + s.def.defName + " to buildingPawn.", 5);
             }
@@ -513,6 +547,8 @@ namespace ProjectSAL
             fieldInfo.SetValue(p, fieldInfo.GetValue(this));
             //Assign Pawn's position without nasty errors
             p.SetPositionDirect(Position);
+            //Clear pawn relations
+            p.relations.ClearAllRelations();
             //Pawn work-related stuffs
             for (int i = 0; i < 24; i++)
             {
@@ -651,6 +687,7 @@ namespace ProjectSAL
                 thing = WorkTable;
 			}
 			Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
+            //Automatically checks if already reserved in core game code
 			if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(thing))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
 			else ProjectSAL_Utilities.Message("Could not reserve thing " + thing, 4);
         }
