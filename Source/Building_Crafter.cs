@@ -380,7 +380,6 @@ namespace ProjectSAL
         {
         	if ((decimal)ingredient.count == 0)
                 return;
-            PlayDropSound(t);
             AcceptItemWithFilter(t, ingredient);
         }
 
@@ -393,8 +392,10 @@ namespace ProjectSAL
                 DropAllThings();
                 return;
             }
-            if (ingredient.filter.Allows(t) && (bill?.ingredientFilter?.Allows(t) ?? true))
+            //                                         Just in case bill doesn't have item in fixed ingredient filter VVV
+            if (ingredient.filter.Allows(t) && ((bill?.ingredientFilter?.Allows(t) ?? true) || !currentRecipe.fixedIngredientFilter.Allows(t)))
             {
+                PlayDropSound(t);
                 ProcessItem(t, ingredient);
             }
         }
