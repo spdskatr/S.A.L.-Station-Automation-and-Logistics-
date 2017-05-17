@@ -519,7 +519,7 @@ namespace ProjectSAL
                 
                 //Factor from stuff, as well as extra work speed. The lighter the mass of the stuff it's made out of, the faster it crafts.
                 //Steel is the base, so the factor of steel must equal 1
-                float factorFromStuff = (Stuff.statBases.Find(s => s.stat == StatDefOf.Mass)?.value ?? 0.5f) * 2;
+                float factorFromStuff = (Stuff.statBases.Find(s => s.stat == StatDefOf.MeleeWeapon_Cooldown)?.value ?? 0.5f) * 2;
                 float extraFactor = Extension.globalFactor;
                 workLeft -= (interval * skillFactor * extraFactor / factorFromStuff);
                 if (workLeft <= 0f)
