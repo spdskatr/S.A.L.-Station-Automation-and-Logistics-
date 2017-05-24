@@ -21,4 +21,12 @@
   <SALInspect_PlacementQueue>Recipe products waiting to be placed: {0}</SALInspect_PlacementQueue>
   <SALAssignTimeTable>Edit active hours</SALAssignTimeTable>
   <SALAssignTimeTable_Desc>Opens the timetable interface. Left click a cell to set to WORK, right click a cell to set to SLEEP</SALAssignTimeTable_Desc>
+  
+  <!--Letter tooltips-->
+  <SALInformation_CoreDriller>Information: S.A.L. + Core Driller</SALInformation_CoreDriller>
+  <SALInformation_CoreDriller_Desc>The settings seem to show that the fix for core drillers is currently turned off. When it is turned off, S.A.L. machines will not be able to interact with them. To turn it on, please go to Options -> Mod Settings.\nNote: This letter will only fire every time you start the game.</SALInformation_CoreDriller_Desc>
+  
+  <!--Settings translations-->
+  <SALSettings_CoreDrillerFix>Fix interaction cell for TheUbie's core drillers</SALSettings_CoreDrillerFix>
+  <SALSettings_CoreDrillerFix_Desc>(Compatibility patch) Fix the interaction cell for S.A.L. so that they can work in front of core drillers.</SALSettings_CoreDrillerFix_Desc>
 </LanguageData>

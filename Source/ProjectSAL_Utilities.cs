@@ -5,22 +5,20 @@ using System.Text;
 using RimWorld;
 using Verse;
 using UnityEngine;
+using RimWorld.Planet;
 
 namespace ProjectSAL
 {
     static class ProjectSAL_Utilities
     {
+        /// <summary>
+        /// This will reset every time the game initialises (not when map loads).
+        /// </summary>
+        public static List<string> indexes = new List<string>();
     	/// <summary>
     	/// This value is normally revision number + 1
     	/// </summary>
 		public static int minImportance = 8;
-        public static bool FFPresent
-        {
-            get
-            {
-                return ModsConfig.ActiveModsInLoadOrder.Any(d => d.Name == "SS Factory Framework");
-            }
-        }
         public static bool FuzzyCompareFloat(float a, float b, float marginOfError)
         {
             return Mathf.Abs(a - b) < marginOfError;
@@ -56,15 +54,36 @@ namespace ProjectSAL
         public static float CalculateCraftingSpeedFactor(this StatDef workSpeedStat, Pawn pawn, ModExtension_Assembler extension)
         {
             if (workSpeedStat == null || pawn == null) return 1f;
-        	float basenum = workSpeedStat.defaultBaseValue;
+        	float basenum = pawn.GetStatValue(workSpeedStat, true);
             List<SkillNeed> skillNeedFactors = workSpeedStat.skillNeedFactors ?? new List<SkillNeed>();
             for (int i = 0; i < skillNeedFactors.Count; i++) 
         	{
                 var skillNeed = skillNeedFactors[i];
                 var extraFactor = extension.skills.Find(s => s.skillDef == skillNeed.skill)?.workSpeedFactorExtra ?? 1;
-                basenum *= (skillNeed.FactorFor(pawn) * extraFactor);
+                basenum *= extraFactor;
             }
             return basenum;
+        }
+        public static void ReceiveLetterOnce(string label, string text, LetterDef textLetterDef, GlobalTargetInfo lookTarget, string debugInfo)
+        {
+            //Only send if both letter stack and local indexes do not have the letter
+            if (!indexes.Contains(debugInfo) && !Find.LetterStack.LettersListForReading.Any(l => l.debugInfo == debugInfo))
+            {
+                indexes.Add(debugInfo);
+                Find.LetterStack.ReceiveLetter(label, text, textLetterDef, lookTarget, debugInfo);
+            }
+        }
+
+        /// <summary>
+        /// Provides warning for core driller + S.A.L. combination.
+        /// </summary>
+        public static void CheckForCoreDrillerSetting(this Building_Crafter crafter)
+        {
+            var tableExists = crafter.Map.thingGrid.ThingsListAt(crafter.WorkTableCell).OfType<Building>().TryRandomElement(out Building table);
+            if (tableExists && !LoadedModManager.GetMod<SALMod>().settings.FixCoreDriller && table.def.defName == "CoreDrill")
+            {
+                ReceiveLetterOnce("SALInformation_CoreDriller".Translate(), "SALInformation_CoreDriller_Desc".Translate(), DefDatabase<LetterDef>.GetNamed("SALInformation"), crafter.InteractionCell.GetFirstBuilding(crafter.Map), "SALInformation_CoreDriller");
+            }
         }
     }
     /// <summary>

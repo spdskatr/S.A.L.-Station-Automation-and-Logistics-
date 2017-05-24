@@ -33,14 +33,14 @@ using RimWorld;
  * Patch for Mending
  * Maintenance intervals------------------------------DONE
  * Move AssemblerDef to a ModExtension----------------DONE
- * Tiered crafters-----------------------------------PENDING
+ * Tiered crafters------------------------------------DONE
  *From xlilcasper (Ludeon Forums)
  * Let items get accepted from adjacent cells---------DONE
- * Check if colony has enough resources for bill
+ * Check if colony has enough resources for billC:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\[SS] ProjectSAL\Source\Building_Crafter.cs
  *From Kadan Joelavich (Steam)
  * "This may not be possible, but would there 
  * be any way to have their global work speed 
- * factor in the material they are make from?--------PENDING
+ * factor in the material they are make from?---------DONE
  * Rework smart hopper
  * */
 namespace ProjectSAL
@@ -58,6 +58,9 @@ namespace ProjectSAL
         public Pawn buildingPawn;
         [Unsaved]
         public Sustainer sustainer;
+        /// <summary>
+        /// Cache only. <see cref="ShouldActivate"/>
+        /// </summary>
         [Unsaved]
         bool cachedShouldActivate = true;
         #endregion
@@ -123,7 +126,7 @@ namespace ProjectSAL
         protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) && (!(WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false));
 
         /// <summary>
-        /// If worktable has no bolls that we should do now, return true
+        /// If worktable has no bills that we should do now, return true
         /// </summary>
         protected bool WorkTableIsDormant => !(BillStack?.AnyShouldDoNow ?? false);
         #endregion
@@ -132,6 +135,9 @@ namespace ProjectSAL
 
         #region Override methods
 
+            /// <summary>
+            /// Displays skills in inspector
+            /// </summary>
         public override IEnumerable<StatDrawEntry> SpecialDisplayStats
         {
             get
@@ -251,6 +257,7 @@ namespace ProjectSAL
             base.Tick();
             if (Find.TickManager.TicksGame % 30 == 0)
             {
+                this.CheckForCoreDrillerSetting();
                 if (!ShouldActivate()) return;
             }
             else
@@ -354,6 +361,7 @@ namespace ProjectSAL
             if (WorkDone)
                 TryMakeProducts();
         }
+
 
         #region Item accepting calculations
         /// <summary>
