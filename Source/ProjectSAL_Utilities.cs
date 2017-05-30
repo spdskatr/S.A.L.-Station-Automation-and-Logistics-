@@ -9,6 +9,34 @@ using RimWorld.Planet;
 
 namespace ProjectSAL
 {
+    public class ProjectSAL_OnGameLoadChecker : WorldComponent
+    {
+        public ProjectSAL_OnGameLoadChecker(World world) : base(world)
+        {
+        }
+
+        public override void FinalizeInit()
+        {
+            base.FinalizeInit();
+            CheckCoreDriller();
+        }
+
+        public static void CheckCoreDriller()
+        {
+            var def = DefDatabase<ThingDef>.GetNamedSilentFail("CoreDrill");
+            if (def != null)
+            {
+                if (LoadedModManager.GetMod<SALMod>().settings.FixCoreDriller)
+                {
+                    DefDatabase<ThingDef>.GetNamedSilentFail("CoreDrill").interactionCellOffset = new IntVec3(0,0,-2);
+                }
+                else
+                {
+                    DefDatabase<ThingDef>.GetNamedSilentFail("CoreDrill").interactionCellOffset = new IntVec3(0,0,-1);
+                }
+            }
+        }
+    }
     static class ProjectSAL_Utilities
     {
         /// <summary>

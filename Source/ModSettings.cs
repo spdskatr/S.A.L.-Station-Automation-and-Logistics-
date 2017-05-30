@@ -13,13 +13,7 @@ namespace ProjectSAL
         {
             base.ExposeData();
             Scribe_Values.Look(ref FixCoreDriller, "FixCoreDriller");
-            //Do actual fix for core drill
-            if (FixCoreDriller)
-            {
-                var def = DefDatabase<ThingDef>.GetNamedSilentFail("CoreDrill");
-                if (def != null)
-                    def.interactionCellOffset *= 2;
-            }
+            ProjectSAL_OnGameLoadChecker.CheckCoreDriller();
         }
 
         public void DoWindowContents(Rect inRect)

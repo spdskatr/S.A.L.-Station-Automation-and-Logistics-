@@ -65,7 +65,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Building_Crafter_AcceptingItems.cs" />
     <Compile Include="Building_Crafter.cs" />
+    <Compile Include="Building_Crafter_LogicHelpers.cs" />
+    <Compile Include="Building_Crafter_MiscOverride.cs" />
+    <Compile Include="Building_Crafter_Properties.cs" />
+    <Compile Include="Building_Crafter_Ticking.cs" />
     <Compile Include="Dialogs.cs" />
     <Compile Include="Defs.cs" />
     <Compile Include="ModSettings.cs" />

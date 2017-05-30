@@ -45,7 +45,7 @@ using RimWorld;
  * */
 namespace ProjectSAL
 {
-    public class Building_Crafter : Building
+    public partial class Building_Crafter : Building
     {
         #region Fields
         public Rot4 rotOutput = Rot4.South;
@@ -59,405 +59,10 @@ namespace ProjectSAL
         [Unsaved]
         public Sustainer sustainer;
         /// <summary>
-        /// Cache only. <see cref="ShouldActivate"/>
+        /// Cache only. <see cref="CheckIfShouldActivate"/>
         /// </summary>
         [Unsaved]
         bool cachedShouldActivate = true;
-        #endregion
-
-        #region Properties 1
-        public ModExtension_Assembler Extension => def.GetModExtension<ModExtension_Assembler>();
-
-        public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
-
-        public List<Thing> NextItems
-        {
-            get
-            {
-                var things = new List<Thing>();
-                foreach (var c in GenAdj.CellsAdjacent8Way(this))
-                {
-                    foreach (var t in c.GetThingList(Map))
-                    {
-                        if (t.def.category == ThingCategory.Item)
-                            things.Add(t);
-                    }
-                }
-                
-                return things;
-            }
-        }
-
-		public IntVec3 WorkTableCell => Position + GenAdj.CardinalDirections[Rotation.AsInt];
-
-        public Building_WorkTable WorkTable => Map.thingGrid.ThingsListAt(WorkTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out Building_WorkTable result) ? result : null;
-
-		public BillStack BillStack => WorkTable?.BillStack;
-        #endregion
-
-        #region Properties 2
-        protected bool OutputSlotOccupied => OutputSlot.GetFirstItem(Map) != null || OutputSlot.Impassable(Map);
-        
-        protected bool ShouldDoWork => currentRecipe != null && !ingredients.Any(ingredient => ingredient.count > 0) && ShouldDoWorkInCurrentTimeAssignment;
-        
-		protected bool ShouldStartBill => currentRecipe == null && BillStack != null && BillStack.AnyShouldDoNow;
-
-        protected bool ShouldDoWorkInCurrentTimeAssignment => buildingPawn.timetable.times[GenLocalDate.HourOfDay(this)] != TimeAssignmentDefOf.Sleep;
-
-		protected bool WorkDone => currentRecipe != null && ShouldDoWork && (int)workLeft == 0;
-
-		protected SoundDef SoundOfCurrentRecipe => currentRecipe?.soundWorking;
-		
-        protected bool WorkTableisReservedByOther
-        {
-        	get
-        	{
-        		if (WorkTable == null) return false;
-        		var target = new LocalTargetInfo(WorkTable);
-        		return Map.reservationManager.IsReserved(target, Faction) && !Map.physicalInteractionReservationManager.IsReservedBy(buildingPawn, target) && !Map.reservationManager.ReservedBy(target, buildingPawn);
-        	}
-        }
-        
-        /// <summary>
-        /// If worktable is reserved by someone else, or dependent on power and has no power, return false
-        /// </summary>
-		protected bool WorkTableIsDisabled => WorkTable != null && WorkTableisReservedByOther && WorkTableIsPoweredOff;
-
-        protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) && (!(WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false));
-
-        /// <summary>
-        /// If worktable has no bills that we should do now, return true
-        /// </summary>
-        protected bool WorkTableIsDormant => !(BillStack?.AnyShouldDoNow ?? false);
-        #endregion
-
-        //Constructors go here if needed
-
-        #region Override methods
-
-            /// <summary>
-            /// Displays skills in inspector
-            /// </summary>
-        public override IEnumerable<StatDrawEntry> SpecialDisplayStats
-        {
-            get
-            {
-                var extensionSkills = Extension.skills.ListFullCopy();
-                foreach (StatDrawEntry stat in base.SpecialDisplayStats)
-                    yield return stat;
-                foreach (var skill in DefDatabase<SkillDef>.AllDefs)
-                {
-                    foreach (SkillLevel skillLevel in extensionSkills)
-                    {
-                        if (skillLevel.skillDef == skill)
-                        {
-                            yield return new StatDrawEntry(StatCategoryDefOf.PawnMisc, skillLevel.skillDef.label, skillLevel.ToString());
-                            extensionSkills.Remove(skillLevel);
-                            goto SkillRecorded;
-                        }
-                    }
-                    yield return new StatDrawEntry(StatCategoryDefOf.PawnMisc, skill.label, Extension.defaultSkillLevel.ToString());
-                    SkillRecorded:;
-                }
-            }
-        }
-
-        public override void SpawnSetup(Map map, bool respawningAfterLoad)
-		{
-			base.SpawnSetup(map, respawningAfterLoad);
-            if (buildingPawn == null)
-            {
-                DoPawn();
-                ProjectSAL_Utilities.Message("made new pawn.", 3);
-            }
-            else
-            {
-                var fieldInfo = typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance);
-                //Assign Pawn's mapIndexOrState to building's mapIndexOrState
-                fieldInfo.SetValue(buildingPawn, fieldInfo.GetValue(this));
-                //Assign Pawn's position without nasty errors
-                buildingPawn.SetPositionDirect(Position);
-            }
-        }
-
-        public override void ExposeData()
-        {
-            base.ExposeData();
-            Scribe_Deep.Look(ref buildingPawn, "pawn");
-            Scribe_Defs.Look(ref currentRecipe, "currentRecipe");
-            Scribe_Values.Look(ref workLeft, "workLeft");
-            Scribe_Values.Look(ref rotOutput, "rotOutput");
-            Scribe_Values.Look(ref allowForbidden, "allowForbidden", true);
-            Scribe_Collections.Look(ref ingredients, "ingredients", LookMode.Deep);
-            Scribe_Collections.Look(ref thingRecord, "thingRecord", LookMode.Deep);
-            Scribe_Collections.Look(ref thingPlacementQueue, "placementQueue", LookMode.Deep);
-            if (buildingPawn == null)
-            {
-                DoPawn();
-                ProjectSAL_Utilities.Message("made new pawn.", 3);
-            }
-        }
-
-        public override IEnumerable<Gizmo> GetGizmos()
-        {
-            foreach (Gizmo g in base.GetGizmos())
-                yield return g;
-            yield return new Command_Action
-            {
-                icon = ContentFinder<Texture2D>.Get("UI/Misc/Compass"),
-                defaultLabel = "AdjustDirection_Output".Translate(),
-                defaultDesc = "AdjustDirection_Desc".Translate(rotOutput.AsCompassDirection()),
-                activateSound = SoundDefOf.Click,
-                action = () => rotOutput.Rotate(RotationDirection.Clockwise)
-            };
-            yield return new Command_Toggle
-            {
-                icon = ContentFinder<Texture2D>.Get("Things/Special/ForbiddenOverlay"),
-                defaultLabel = "SALToggleForbidden".Translate(),
-                defaultDesc = "SALToggleForbidden_Desc".Translate(),
-                isActive = () => allowForbidden,
-                toggleAction = () => allowForbidden = !allowForbidden
-            };
-            yield return new Command_Action
-            {
-                icon = ContentFinder<Texture2D>.Get("UI/Designators/Cancel"),
-                defaultLabel = "SALCancelBills".Translate(),
-                defaultDesc = "SALCancelBills_Desc".Translate(),
-                activateSound = SoundDefOf.Click,
-                action = () =>
-                {
-                    DropAllThings();
-                    ResetRecipe();
-                }
-            };
-            yield return new Command_Action
-            {
-                defaultLabel = "SALAssignTimeTable".Translate(),
-                defaultDesc = "SALAssignTimeTable_Desc".Translate(),
-                icon = ContentFinder<Texture2D>.Get("EditActiveHours"),
-                action = () => Find.WindowStack.Add(new Dialog_SALTimeTable(buildingPawn))
-            };
-            if (Prefs.DevMode)
-            {
-                yield return new Command_Action
-                {
-                    defaultLabel = "DEBUG: Set workLeft to 1",
-                    action = () => workLeft = 1,
-                };
-                yield return new Command_Action
-                {
-                    defaultLabel = "DEBUG: Drop everything",
-                    action = DropAllThings,
-                };
-            }
-        }
-
-        public override void Tick()
-        {
-            base.Tick();
-            if (Find.TickManager.TicksGame % 30 == 0)
-            {
-                this.CheckForCoreDrillerSetting();
-                if (!ShouldActivate()) return;
-            }
-            else
-            {
-                if (!cachedShouldActivate) return;
-            }
-
-            if (ShouldDoWork && SoundOfCurrentRecipe != null && !WorkTableIsDisabled)
-                PlaySustainer();
-            if (WorkTable != null && !Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) TryReserve();
-            if (Find.TickManager.TicksGame % 35 == 0)
-                AcceptItems();//once every 35 ticks
-            if (Find.TickManager.TicksGame % 60 == 0)
-                TickSecond();//once every 60 ticks
-        }
-
-        public bool ShouldActivate()
-        {
-            if (!ShouldDoWorkInCurrentTimeAssignment || WorkTableIsDisabled || WorkTableIsDormant)
-            {
-                if (Map.reservationManager.IsReserved(new LocalTargetInfo(WorkTable), Faction)) ReleaseAll();
-                var powerComp = GetComp<CompPowerTrader>();
-                //Change to low power
-                if (powerComp != null)
-                {
-                    powerComp.powerOutputInt = -Extension.powerUsageLowPower;
-                }
-                cachedShouldActivate = false;
-                return false;
-            }
-            else
-            {
-                //Restore high power
-                var powerComp = GetComp<CompPowerTrader>();
-                if (powerComp != null)
-                {
-                    powerComp.powerOutputInt = -def.GetCompProperties<CompProperties_Power>().basePowerConsumption;
-                }
-            }
-            cachedShouldActivate = true;
-            return true;
-        }
-
-        public override void DrawExtraSelectionOverlays()
-        {
-            base.DrawExtraSelectionOverlays();
-            GenDraw.DrawFieldEdges(GenAdj.CellsAdjacent8Way(this).ToList());
-            GenDraw.DrawFieldEdges(new List<IntVec3> { OutputSlot }, Color.green);
-            Graphics.DrawMesh(MeshPool.plane10, WorkTableCell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), Quaternion.identity, GenDraw.InteractionCellMaterial, 0);
-        }
-
-        public override string GetInspectString()
-        {
-            var stringBuilder = new StringBuilder();
-            stringBuilder.Append(base.GetInspectString());
-            stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotOutput.AsCompassDirection()));
-            stringBuilder.AppendLine("SALInspect_WorkLeft".Translate(workLeft.ToStringWorkAmount()));
-            stringBuilder.AppendLine("SALInspect_PlacementQueue".Translate(thingPlacementQueue.Count));
-            if (!GetComp<CompPowerTrader>().PowerOn)
-            {
-                stringBuilder.Append("SALInspect_PowerOff".Translate());
-            }
-            else
-            {
-                stringBuilder.Append("SALInspect_ResourcesNeeded".Translate());
-                foreach (_IngredientCount ingredient in ingredients)
-                {
-                    var str = ingredient.ToString();
-                    stringBuilder.Append(str + " ");//(75 x Steel) (63 x Wood) etc
-                }
-            }
-            return stringBuilder.ToString();
-        }
-
-        public override void Destroy(DestroyMode mode = DestroyMode.Vanish)
-        {
-            ReleaseAll();
-            DropAllThings();
-            base.Destroy(mode);
-        }
-        #endregion
-        
-        public virtual void TickSecond()
-        {
-            TryOutputItem();
-
-            if (ResetIfWorkTableIsNull())
-                return;
-            if (ShouldStartBill)
-                SetRecipe(BillStack.FirstShouldDoNow);
-            if (ShouldDoWork)
-            {
-                if (workLeft <= 0)
-                {
-                    ThingDef mainIngDef = CalculateDominantIngredient(currentRecipe, thingRecord).def;
-                    ProjectSAL_Utilities.Message("mainIngDef: " + mainIngDef.ToString(), 3);
-                    workLeft = currentRecipe.WorkAmountTotal(mainIngDef);
-                }
-                DoWork();
-            }
-            if (WorkDone)
-                TryMakeProducts();
-        }
-
-
-        #region Item accepting calculations
-        /// <summary>
-        /// Accepts a new load of items into ingredient list
-        /// </summary>
-        public virtual void AcceptItems()
-        {
-            ProjectSAL_Utilities.Message("Count of nextItems: " + NextItems.Count, 1);
-            ProjectSAL_Utilities.Message("Count of ingredients: " + ingredients.Count, 1);
-            NextItems.ForEach(AcceptEachItem);
-        }
-
-        protected virtual void AcceptEachItem(Thing t)
-        {
-            if (t.TryGetComp<CompForbiddable>() != null 
-                && (!t.TryGetComp<CompForbiddable>()?.Forbidden ?? false
-                || allowForbidden)
-                && Map.reservationManager.IsReserved(new LocalTargetInfo(t), Faction.OfPlayer))
-                return;
-            ingredients.ForEach(ingredient => AcceptEachIngredient(ingredient, t));
-        }
-
-        protected virtual void AcceptEachIngredient(_IngredientCount ingredient, Thing t)
-        {
-        	if ((decimal)ingredient.count == 0)
-                return;
-            AcceptItemWithFilter(t, ingredient);
-        }
-
-        protected virtual void AcceptItemWithFilter(Thing t, _IngredientCount ingredient)
-        {
-            var bill = (WorkTable != null && BillStack != null) ? BillStack.FirstShouldDoNow : null;
-            if (bill?.recipe != currentRecipe)
-            {
-                ResetRecipe();
-                DropAllThings();
-                return;
-            }
-            //                                         Just in case bill doesn't have item in fixed ingredient filter VVV
-            if (ingredient.filter.Allows(t) && ((bill?.ingredientFilter?.Allows(t) ?? true) || !currentRecipe.fixedIngredientFilter.Allows(t)))
-            {
-                PlayDropSound(t);
-                ProcessItem(t, ingredient);
-            }
-        }
-
-        protected virtual void ProcessItem(Thing t, _IngredientCount ingredient)
-        {
-            float baseCount = CalculateBaseCountFinalised(t, ingredient); 
-            if (ingredient.count >= baseCount)
-            {
-                TakeItemWhenBaseCountDoesNotSatisfy(t, ingredient, baseCount);
-            }
-            else
-            {
-                SplitItemWhenBaseCountSatisfies(t, ingredient);
-            }
-        }
-
-        protected virtual void SplitItemWhenBaseCountSatisfies(Thing t, _IngredientCount ingredient)
-        {
-            var countToSplitOff = CalculateIngredientIntFinalised(t, ingredient);
-            if (countToSplitOff > 0)
-            {
-                Thing dup = t.SplitOff(countToSplitOff);
-                if (!thingRecord.Any(thing => t.def == thing.def))
-                    thingRecord.Add(dup);
-            }
-            ingredient.count = 0;
-        }
-
-        protected virtual void TakeItemWhenBaseCountDoesNotSatisfy(Thing t, _IngredientCount ingredient, float basecount)
-        {
-            Thing dup;
-            if (t is Corpse corpse)
-            {
-                corpse.Strip();
-                /*
-                Map.dynamicDrawManager.DeRegisterDrawable(t);
-                var listoflists = typeof(ListerThings).GetField("listsByGroup", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(Map.listerThings) as List<Thing>[];
-                var list = listoflists[(int)ThingRequestGroup.HasGUIOverlay];
-                if (list.Contains(t)) list.Remove(t);
-                t.Position = Position;*/
-                t.DeSpawn();
-                dup = t;
-                typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dup, (sbyte)-1);
-            }
-            else
-            {
-                dup = t.SplitOff(t.stackCount);
-            }
-            if (!thingRecord.Any(thing => t.def == thing.def))
-                thingRecord.Add(dup);
-            else thingRecord.Find(thing => t.def == thing.def);
-            ingredient.count -= basecount;
-        }
         #endregion
 
         #region Nutrition/Small volume calculations
@@ -509,34 +114,6 @@ namespace ProjectSAL
         }
         #endregion
 
-        public virtual void DoWork(int interval = 60)
-        {
-			if (WorkTableIsDisabled) 
-			{
-				ReleaseAll();
-				return;
-			} 
-            else
-            {
-                TryReserve();
-            }
-            if (workLeft > 0)
-            {
-                //Skill factors for each skill are calculated in CalculateCraftingSpeedFactor
-                float skillFactor = currentRecipe.workSpeedStat.CalculateCraftingSpeedFactor(buildingPawn, Extension);
-                
-                //Factor from stuff, as well as extra work speed. The lighter the mass of the stuff it's made out of, the faster it crafts.
-                //Steel is the base, so the factor of steel must equal 1
-                float factorFromStuff = (Stuff.statBases.Find(s => s.stat == StatDefOf.MeleeWeapon_Cooldown)?.value ?? 0.5f) * 2;
-                float extraFactor = Extension.globalFactor;
-                workLeft -= (interval * skillFactor * extraFactor / factorFromStuff);
-                if (workLeft <= 0f)
-                {
-                    workLeft = 0f;
-                }
-            }
-        }
-
         /// <summary>
         /// Makes a pawn.
         /// </summary>
@@ -573,6 +150,55 @@ namespace ProjectSAL
             currentRecipe = b.recipe;
             ingredients = new List<_IngredientCount>();
             (currentRecipe.ingredients ?? new List<IngredientCount>()).ForEach(ing => ingredients.Add(ing));//implicit cast
+        }
+
+        #region Products
+        public virtual void TryMakeProducts()
+        {
+            if (currentRecipe == null)
+            {
+                Log.Warning(ToString() + " had workLeft > 0 when the currentRecipe is NULL. Resetting. (workLeft probably isn't synchronised with recipe. Use resetRecipe() to set currentRecipe to NULL and to synchronise workLeft.)");
+                ResetRecipe();
+                return;
+            }
+            foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
+            {
+                thingPlacementQueue.Add(obj);
+                ProjectSAL_Utilities.Message("Thing added to queue. Thing was: " + obj + " x " + obj.stackCount, 2);
+            }
+            ProjectSAL_Utilities.Message("Current thingPlacementQueue length is: " + thingPlacementQueue.Count, 2);
+            FindBillAndChangeRepeatCount(BillStack, currentRecipe);
+            ResetRecipe();
+        }
+
+        public virtual void TryOutputItem()
+        {
+            ProjectSAL_Utilities.Message(string.Format("ThingPlacementQueue length: {0}, OutputSlotOccupied: {1}", thingPlacementQueue.Count, OutputSlotOccupied), 1);
+            if (!OutputSlotOccupied && thingPlacementQueue.Count > 0)
+            {
+                GenPlace.TryPlaceThing(thingPlacementQueue.First(), OutputSlot, Map, ThingPlaceMode.Direct);
+                thingPlacementQueue.RemoveAt(0);
+            }
+            else if (thingPlacementQueue.Count > 0)
+            {
+                foreach (var t in thingPlacementQueue)
+                {
+                    var thing = OutputSlot.GetThingList(Map).Find(th => th.CanStackWith(t));
+                    thing?.TryAbsorbStack(t, true);
+                    if (t.Destroyed || t.stackCount == 0)
+                    {
+                        thingPlacementQueue.Remove(t);
+                        break;
+                    }
+                }
+            }
+        }
+        #endregion
+        
+        public void PlayDropSound(Thing t)
+        {
+            if (t.def.soundDrop != null)
+                t.def.soundDrop.PlayOneShot(SoundInfo.InMap(new TargetInfo(this)));
         }
 
         #region Resetting
@@ -619,70 +245,6 @@ namespace ProjectSAL
         }
         #endregion
 
-        #region Products
-        public virtual void TryMakeProducts()
-        {
-            if (currentRecipe == null)
-            {
-                Log.Warning(ToString() + " had workLeft > 0 when the currentRecipe is NULL. Resetting. (workLeft probably isn't synchronised with recipe. Use resetRecipe() to set currentRecipe to NULL and to synchronise workLeft.)");
-                ResetRecipe();
-                return;
-            }
-            foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
-            {
-                thingPlacementQueue.Add(obj);
-                ProjectSAL_Utilities.Message("Thing added to queue. Thing was: " + obj + " x " + obj.stackCount, 2);
-            }
-            ProjectSAL_Utilities.Message("Current thingPlacementQueue length is: " + thingPlacementQueue.Count, 2);
-            FindBillAndChangeRepeatCount(BillStack, currentRecipe);
-            ResetRecipe();
-        }
-
-        public virtual void TryOutputItem()
-        {
-            ProjectSAL_Utilities.Message(string.Format("ThingPlacementQueue length: {0}, OutputSlotOccupied: {1}", thingPlacementQueue.Count, OutputSlotOccupied), 1);
-            if (!OutputSlotOccupied && thingPlacementQueue.Count > 0)
-            {
-                GenPlace.TryPlaceThing(thingPlacementQueue.First(), OutputSlot, Map, ThingPlaceMode.Direct);
-                thingPlacementQueue.RemoveAt(0);
-            }
-            else if (thingPlacementQueue.Count > 0)
-            {
-                foreach (var t in thingPlacementQueue)
-                {
-                    var thing = OutputSlot.GetThingList(Map).Find(th => th.CanStackWith(t));
-                    thing?.TryAbsorbStack(t, true);
-                    if (t.Destroyed || t.stackCount == 0)
-                    {
-                        thingPlacementQueue.Remove(t);
-                        break;
-                    }
-                }
-            }
-        }
-        #endregion
-
-        #region Sound-based
-        public void PlaySustainer()
-        {
-            if (sustainer == null || sustainer.Ended)
-            {
-                var soundInfo = SoundInfo.InMap(new TargetInfo(this), MaintenanceType.PerTick);
-                sustainer = SoundOfCurrentRecipe.TrySpawnSustainer(soundInfo);
-            }
-            else
-            {
-                sustainer.Maintain();
-            }
-        }
-
-        public void PlayDropSound(Thing t)
-        {
-            if (t.def.soundDrop != null)
-                t.def.soundDrop.PlayOneShot(SoundInfo.InMap(new TargetInfo(this)));
-        }
-        #endregion
-
         #region Reservation
         public void TryReserve(Thing thing = null)
         {
@@ -707,44 +269,8 @@ namespace ProjectSAL
         	Map.reservationManager.ReleaseAllClaimedBy(buildingPawn);
         }
         #endregion
-
-        #region Static logic helpers
-        public static Thing CalculateDominantIngredient(RecipeDef currentRecipe, List<Thing> thingRecord)
-        {
-            var stuffs = thingRecord.Where(t => t.def.IsStuff);
-            if (thingRecord == null)
-            {
-                Log.Warning("ThingRecord was null.");
-                return null;
-            }
-            if (thingRecord.Count == 0)
-            {
-                if (currentRecipe.ingredients.Count > 0) Log.Warning("S.A.L.: Had no thingRecord of items being accepted, but crafting recipe has ingredients.");
-                return ThingMaker.MakeThing(ThingDefOf.Steel);
-            }
-            if (currentRecipe.productHasIngredientStuff)
-            {
-                return stuffs.OrderByDescending(t => t.stackCount).First();
-            }
-            if (currentRecipe.products.Any(x => x.thingDef.MadeFromStuff) || stuffs.Any())
-            {
-                return stuffs.RandomElementByWeight(x => x.stackCount);
-            }
-            return ThingMaker.MakeThing(ThingDefOf.Steel);
-        }
-
-        public static void FindBillAndChangeRepeatCount(BillStack billStack, RecipeDef currentRecipe)
-        {
-            if (billStack != null && billStack.Bills != null)
-            {
-                var billrepeater = billStack.Bills.OfType<Bill_Production>().ToList().Find(b => b.ShouldDoNow() && b.recipe == currentRecipe);
-                if (billrepeater != null && billrepeater.repeatMode == BillRepeatModeDefOf.RepeatCount)
-                    billrepeater.repeatCount -= 1;
-            }
-        }
-        #endregion
     }
-    public class Building_SmartHopper : Building_Storage
+    public class Building_SmartHopper : Building, IStoreSettingsParent
     {
         public int limit = 75;
 
@@ -752,6 +278,8 @@ namespace ProjectSAL
         public IEnumerable<IntVec3> cachedDetectorCells;
 
         protected virtual bool ShouldRespectStackLimit => true;
+
+        public StorageSettings settings;
 
         public Thing StoredThing => Position.GetFirstItem(Map);
 
@@ -785,10 +313,13 @@ namespace ProjectSAL
             }
         }
 
+        public bool StorageTabVisible => true;
+
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref limit, "limit", 75);
+            Scribe_Deep.Look(ref settings, "settings", this);
         }
 
         public override string GetInspectString() => base.GetInspectString() + "SmartHopper_Limit".Translate(limit);
@@ -806,6 +337,7 @@ namespace ProjectSAL
                         break;
                     }
                 }
+                StoredThing.SetForbidden(true, false);
             }
         }
 
@@ -849,12 +381,18 @@ namespace ProjectSAL
         {
             foreach (var g in base.GetGizmos())
                 yield return g;
-            yield return new Command_Action
+            foreach (Gizmo g2 in StorageSettingsClipboard.CopyPasteGizmosFor(settings))
+                yield return g2;
+                yield return new Command_Action
             {
                 icon = ContentFinder<Texture2D>.Get("UI/Commands/SetTargetFuelLevel"),
                 defaultLabel = "SmartHopper_SetTargetAmount".Translate(),
                 action = () => Find.WindowStack.Add(new Dialog_SmartHopperSetTargetAmount(this)),
             };
         }
+
+        public StorageSettings GetStoreSettings() => settings;
+
+        public StorageSettings GetParentStoreSettings() => def.building.fixedStorageSettings;
     }
 }
