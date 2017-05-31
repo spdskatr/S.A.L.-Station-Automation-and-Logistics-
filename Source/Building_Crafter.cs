@@ -391,7 +391,12 @@ namespace ProjectSAL
             };
         }
 
-        public StorageSettings GetStoreSettings() => settings;
+        public StorageSettings GetStoreSettings()
+        {
+            if (settings == null)
+                settings = def.building.defaultStorageSettings;
+            return settings;
+        }
 
         public StorageSettings GetParentStoreSettings() => def.building.fixedStorageSettings;
     }
