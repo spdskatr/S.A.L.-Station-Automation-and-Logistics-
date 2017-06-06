@@ -118,10 +118,13 @@ namespace ProjectSAL
                         break;
                     }
                 }
-                if (settings.AllowedToAccept(StoredThing))
-                    StoredThing.SetForbidden(true, false);
-                else
-                    StoredThing.SetForbidden(false, false);
+                if (StoredThing != null)
+                {
+                    if (settings.AllowedToAccept(StoredThing))
+                        StoredThing.SetForbidden(true, false);
+                    else
+                        StoredThing.SetForbidden(false, false);
+                }
             }
         }
 

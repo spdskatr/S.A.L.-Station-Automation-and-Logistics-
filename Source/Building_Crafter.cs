@@ -36,7 +36,7 @@ using RimWorld;
  * Tiered crafters------------------------------------DONE
  *From xlilcasper (Ludeon Forums)
  * Let items get accepted from adjacent cells---------DONE
- * Check if colony has enough resources for billC:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\[SS] ProjectSAL\Source\Building_Crafter.cs
+ * Check if colony has enough resources for bill
  *From Kadan Joelavich (Steam)
  * "This may not be possible, but would there 
  * be any way to have their global work speed 
