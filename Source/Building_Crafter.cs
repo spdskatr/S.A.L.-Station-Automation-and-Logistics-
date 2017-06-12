@@ -131,7 +131,6 @@ namespace ProjectSAL
                 ResetRecipe();
                 return;
             }
-            buildingPawn.DoSkillsAnalysis();
             foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
             {
                 thingPlacementQueue.Add(obj);
