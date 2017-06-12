@@ -37,9 +37,8 @@ namespace ProjectSAL
             }
 
             buildingPawn = p;
-            p.DoSkillsAnalysis();
-
-            TestBackstoryAndSkills(p);
+            //p.DoSkillsAnalysis();
+            //TestBackstoryAndSkills(p);
         }
 
         private static void SetBackstoryAndSkills(ref Pawn p)
@@ -47,7 +46,6 @@ namespace ProjectSAL
             if (BackstoryDatabase.TryGetWithIdentifier("ChildSpy95", out Backstory bs))
             {
                 p.story.childhood = bs;
-                Log.Message("Successfully assigned backstory " + bs);
             }
             else
             {
@@ -56,7 +54,6 @@ namespace ProjectSAL
             if (BackstoryDatabase.TryGetWithIdentifier("ColonySettler43", out Backstory bstory))
             {
                 p.story.adulthood = bstory;
-                Log.Message("Successfully assigned backstory " + bstory);
             }
             else
             {
@@ -66,7 +63,6 @@ namespace ProjectSAL
             p.story.traits.allTraits = new List<Trait>();
             //Reset cache
             typeof(Pawn_StoryTracker).GetField("cachedDisabledWorkTypes", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(p.story, null);
-            Log.Message("Story cleared.");
         }
         private static void TestBackstoryAndSkills(Pawn p)
         {
