@@ -64,7 +64,10 @@ namespace ProjectSAL
         /// </summary>
         protected bool WorkTableIsDisabled => WorkTable != null && (WorkTableisReservedByOther || WorkTableIsPoweredOff);
 
-        protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) && (!(WorkTable.GetComp<CompBreakdownable>()?.BrokenDown ?? false));
+        /// <summary>
+        /// If power is off, or broken down, then return true
+        /// </summary>
+        protected bool WorkTableIsPoweredOff => !(WorkTable.GetComp<CompPowerTrader>()?.PowerOn ?? true) || WorkTable.IsBrokenDown();
 
         /// <summary>
         /// If worktable has no bills that we should do now, return true

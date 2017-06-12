@@ -29,7 +29,7 @@ namespace ProjectSAL
 		public SkillDef skillDef;
 		public int level = 5;
         /// <summary>
-        /// Doe to comparisons with floating point numbers do NOT type 1.0 as a def field
+        /// Due to possible errors in comparisons with floating point numbers do NOT type 1.0 as a def field
         /// </summary>
         public float workSpeedFactorExtra = 1f;
         public override string ToString()

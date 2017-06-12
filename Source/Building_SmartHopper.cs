@@ -60,7 +60,6 @@ namespace ProjectSAL
             {
                 if (Find.TickManager.TicksGame % 50 != 0 && cachedDetectorCells != null)
                 {
-                    ProjectSAL_Utilities.Message("Returning cache.", 7);
                     return cachedDetectorCells;
                 }
 

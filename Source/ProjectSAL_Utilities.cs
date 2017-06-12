@@ -19,6 +19,20 @@ namespace ProjectSAL
         {
             base.FinalizeInit();
             CheckCoreDriller();
+            DoBackstoryStartup();
+        }
+
+        static void DoBackstoryStartup()
+        {
+            var sb = new StringBuilder();
+            foreach (var item in BackstoryDatabase.allBackstories)
+            {
+                if (!(item.Value.DisabledWorkTypes?.Any() ?? false))
+                {
+                    sb.AppendLine("Discovered backstory with no work types! " + item.Key + " -> " + item.Value);
+                }
+            }
+            Log.Message(sb.ToString());
         }
 
         public static void CheckCoreDriller()
@@ -46,19 +60,9 @@ namespace ProjectSAL
     	/// <summary>
     	/// This value is normally revision number + 1
     	/// </summary>
-		public static int minImportance = 8;
         public static bool FuzzyCompareFloat(float a, float b, float marginOfError)
         {
             return Mathf.Abs(a - b) < marginOfError;
-        }
-        /// <summary>
-        /// If built using the DEBUG constant, it will log a message if value of importance >= minImportance.
-        /// </summary>
-        public static void Message(string str, int importance)
-        {
-        	#if DEBUG
-        	if (importance >= minImportance) Log.Message(str);
-        	#endif
         }
         /// <summary>
         /// Returns current Rot4 as a compass direction.
@@ -112,6 +116,32 @@ namespace ProjectSAL
             {
                 ReceiveLetterOnce("SALInformation_CoreDriller".Translate(), "SALInformation_CoreDriller_Desc".Translate(), DefDatabase<LetterDef>.GetNamed("SALInformation"), crafter.InteractionCell.GetFirstBuilding(crafter.Map), "SALInformation_CoreDriller");
             }
+        }
+
+        public static void DoSkillsAnalysis(this Pawn p)
+        {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.AppendLine("Beginning skills analysis.");
+            foreach (var skill in p.skills.skills)
+            {
+                stringBuilder.AppendLine(skill.def + ": " + skill.levelInt + " Disabled: " + skill.TotallyDisabled);
+            }
+            stringBuilder.AppendLine("Beginning food poison test.");
+            /*
+            foreach (var stat in DefDatabase<StatDef>.AllDefs)
+            {
+                try
+                {
+                    stringBuilder.AppendLine(stat.defName + ": " + p.GetStatValue(stat));
+                }
+                catch
+                {
+                    stringBuilder.AppendLine(stat.defName + ": ERROR");
+                }
+            }
+            */
+            stringBuilder.AppendLine(StatDefOf.FoodPoisonChance.Worker.GetExplanation(StatRequest.For(p), ToStringNumberSense.Absolute));
+            Log.Message(stringBuilder.ToString());
         }
     }
     /// <summary>

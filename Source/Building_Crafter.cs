@@ -114,39 +114,9 @@ namespace ProjectSAL
         }
         #endregion
 
-        /// <summary>
-        /// Makes a pawn.
-        /// </summary>
-        public virtual void DoPawn()
-        {
-            Pawn p = PawnGenerator.GeneratePawn(PawnKindDefOf.Slave, Faction);
-            p.Name = new NameTriple(LabelCap, "SAL_Name".Translate(), GetUniqueLoadID());
-            //Assign skills
-            foreach (var s in p.skills.skills)
-            {
-        		int level = Extension.FindSkillAndGetLevel(s.def, Extension.defaultSkillLevel);
-                s.levelInt = level;
-                ProjectSAL_Utilities.Message("Successfully assigned level " + level + " for " + s.def.defName + " to buildingPawn.", 5);
-            }
-            var fieldInfo = typeof(Thing).GetField("mapIndexOrState", BindingFlags.NonPublic | BindingFlags.Instance);
-            //Assign Pawn's mapIndexOrState to building's mapIndexOrState
-            fieldInfo.SetValue(p, fieldInfo.GetValue(this));
-            //Assign Pawn's position without nasty errors
-            p.SetPositionDirect(Position);
-            //Clear pawn relations
-            p.relations.ClearAllRelations();
-            //Pawn work-related stuffs
-            for (int i = 0; i < 24; i++)
-            {
-                p.timetable.SetAssignment(i, TimeAssignmentDefOf.Work);
-            }
-
-            buildingPawn = p;
-        }
 
         public virtual void SetRecipe(Bill b)
         {
-            ProjectSAL_Utilities.Message("Setting recipe: " + b, 3);
             currentRecipe = b.recipe;
             ingredients = new List<_IngredientCount>();
             (currentRecipe.ingredients ?? new List<IngredientCount>()).ForEach(ing => ingredients.Add(ing));//implicit cast
@@ -161,19 +131,17 @@ namespace ProjectSAL
                 ResetRecipe();
                 return;
             }
+            buildingPawn.DoSkillsAnalysis();
             foreach (Thing obj in GenRecipe.MakeRecipeProducts(currentRecipe, buildingPawn, thingRecord, CalculateDominantIngredient(currentRecipe, thingRecord)))
             {
                 thingPlacementQueue.Add(obj);
-                ProjectSAL_Utilities.Message("Thing added to queue. Thing was: " + obj + " x " + obj.stackCount, 2);
             }
-            ProjectSAL_Utilities.Message("Current thingPlacementQueue length is: " + thingPlacementQueue.Count, 2);
             FindBillAndChangeRepeatCount(BillStack, currentRecipe);
             ResetRecipe();
         }
 
         public virtual void TryOutputItem()
         {
-            ProjectSAL_Utilities.Message(string.Format("ThingPlacementQueue length: {0}, OutputSlotOccupied: {1}", thingPlacementQueue.Count, OutputSlotOccupied), 1);
             if (!OutputSlotOccupied && thingPlacementQueue.Count > 0)
             {
                 GenPlace.TryPlaceThing(thingPlacementQueue.First(), OutputSlot, Map, ThingPlaceMode.Direct);
@@ -260,7 +228,6 @@ namespace ProjectSAL
 			Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
             //Automatically checks if already reserved in core game code
 			if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(thing))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
-			else ProjectSAL_Utilities.Message("Could not reserve thing " + thing, 4);
         }
         
         public void ReleaseAll()

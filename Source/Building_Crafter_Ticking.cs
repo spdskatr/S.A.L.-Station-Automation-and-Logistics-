@@ -78,7 +78,6 @@ namespace ProjectSAL
                 if (workLeft <= 0)
                 {
                     ThingDef mainIngDef = CalculateDominantIngredient(currentRecipe, thingRecord).def;
-                    ProjectSAL_Utilities.Message("mainIngDef: " + mainIngDef.ToString(), 3);
                     workLeft = currentRecipe.WorkAmountTotal(mainIngDef);
                 }
                 DoWork();

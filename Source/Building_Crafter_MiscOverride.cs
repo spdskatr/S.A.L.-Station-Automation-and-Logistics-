@@ -44,7 +44,6 @@ namespace ProjectSAL
             if (buildingPawn == null)
             {
                 DoPawn();
-                ProjectSAL_Utilities.Message("made new pawn.", 3);
             }
             else
             {
@@ -70,7 +69,6 @@ namespace ProjectSAL
             if (buildingPawn == null)
             {
                 DoPawn();
-                ProjectSAL_Utilities.Message("made new pawn.", 3);
             }
         }
 

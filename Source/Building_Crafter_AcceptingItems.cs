@@ -12,8 +12,6 @@ namespace ProjectSAL
         /// </summary>
         public virtual void AcceptItems()
         {
-            ProjectSAL_Utilities.Message("Count of nextItems: " + NextItems.Count, 1);
-            ProjectSAL_Utilities.Message("Count of ingredients: " + ingredients.Count, 1);
             NextItems.ForEach(AcceptEachItem);
         }
 
