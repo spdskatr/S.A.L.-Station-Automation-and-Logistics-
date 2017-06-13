@@ -19,7 +19,6 @@ namespace ProjectSAL
         {
             base.FinalizeInit();
             CheckCoreDriller();
-            DoBackstoryStartup();
         }
 
         static void DoBackstoryStartup()
