@@ -5,7 +5,7 @@ using Verse;
 
 namespace ProjectSAL
 {
-    public partial class Building_Crafter
+    public partial class Building_Assembler
     {
         /// <summary>
         /// Accepts a new load of items into ingredient list
@@ -77,7 +77,8 @@ namespace ProjectSAL
         protected virtual void TakeItemWhenBaseCountDoesNotSatisfy(Thing t, _IngredientCount ingredient, float basecount)
         {
             Thing dup;
-            if (t is Corpse corpse)
+            var corpse = t as Corpse;
+            if (corpse != null)
             {
                 corpse.Strip();
                 /*

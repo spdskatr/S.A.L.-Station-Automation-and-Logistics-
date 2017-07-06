@@ -6,7 +6,7 @@ using Verse;
 
 namespace ProjectSAL
 {
-    public partial class Building_Crafter
+    public partial class Building_Assembler
     {
         /// <summary>
         /// Makes a pawn.

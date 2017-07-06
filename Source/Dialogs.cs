@@ -58,7 +58,10 @@ namespace ProjectSAL
             closeOnEscapeKey = true;
         }
 
-        public Dialog_SALTimeTable(Pawn pawn) : this() => this.pawn = pawn;
+        public Dialog_SALTimeTable (Pawn pawn)
+        {
+            this.pawn = pawn;
+        }
 
         public override Vector2 InitialSize => new Vector2(525f, 100f);
 
