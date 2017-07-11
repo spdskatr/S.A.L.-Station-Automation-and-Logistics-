@@ -21,7 +21,10 @@ namespace ProjectSAL
             CheckCoreDriller();
         }
 
-        static void DoBackstoryStartup()
+        /// <summary>
+        /// Change the name of this method to know you've thoroughly disabled it. :P
+        /// </summary>
+        static void DoBackstoryStartupDisabled()
         {
             var sb = new StringBuilder();
             foreach (var item in BackstoryDatabase.allBackstories)
