@@ -9,7 +9,7 @@ using Verse;
 
 namespace ProjectSAL
 {
-    public partial class Building_Crafter
+    public partial class Building_Assembler
     {
         /// <summary>
         /// Displays skills in inspector
@@ -78,38 +78,37 @@ namespace ProjectSAL
                 yield return g;
             yield return new Command_Action
             {
-                icon = ContentFinder<Texture2D>.Get("UI/Misc/Compass"),
-                defaultLabel = "AdjustDirection_Output".Translate(),
-                defaultDesc = "AdjustDirection_Desc".Translate(rotOutput.AsCompassDirection()),
+                icon = ResourceBank.Texture.Compass,
+                defaultLabel = ResourceBank.String.AdjustDirection_Output,
+                defaultDesc = ResourceBank.String.AdjustDirection_Desc (rotOutput),
                 activateSound = SoundDefOf.Click,
-                action = () => rotOutput.Rotate(RotationDirection.Clockwise)
+                action = () => rotOutput = rotOutput + 1 < OutputSlots ? rotOutput + 1 : 0
             };
             yield return new Command_Toggle
             {
-                icon = ContentFinder<Texture2D>.Get("Things/Special/ForbiddenOverlay"),
-                defaultLabel = "SALToggleForbidden".Translate(),
-                defaultDesc = "SALToggleForbidden_Desc".Translate(),
+                icon = ResourceBank.Texture.ForbiddenOverlay,
+                defaultLabel = ResourceBank.String.SALToggleForbidden,
+                defaultDesc = ResourceBank.String.SALToggleForbidden_Desc,
                 isActive = () => allowForbidden,
                 toggleAction = () => allowForbidden = !allowForbidden
             };
             yield return new Command_Action
             {
-                icon = ContentFinder<Texture2D>.Get("UI/Designators/Cancel"),
-                defaultLabel = "SALCancelBills".Translate(),
-                defaultDesc = "SALCancelBills_Desc".Translate(),
+                icon = ResourceBank.Texture.DesignatorCancel,
+                defaultLabel = ResourceBank.String.SALCancelBills,
+                defaultDesc = ResourceBank.String.SALCancelBills_Desc,
                 activateSound = SoundDefOf.Click,
-                action = () =>
-                {
-                    DropAllThings();
-                    ResetRecipe();
+                action = () => {
+                    DropAllThings ();
+                    ResetRecipe ();
                 }
             };
             yield return new Command_Action
             {
-                defaultLabel = "SALAssignTimeTable".Translate(),
-                defaultDesc = "SALAssignTimeTable_Desc".Translate(),
-                icon = ContentFinder<Texture2D>.Get("EditActiveHours"),
-                action = () => Find.WindowStack.Add(new Dialog_SALTimeTable(buildingPawn))
+                defaultLabel = ResourceBank.String.SALAssignTimeTable,
+                defaultDesc = ResourceBank.String.SALAssignTimeTable_Desc,
+                icon = ResourceBank.Texture.EditActiveHours,
+                action = () => Find.WindowStack.Add (new Dialog_SALTimeTable (buildingPawn))
             };
             if (Prefs.DevMode)
             {
@@ -131,14 +130,15 @@ namespace ProjectSAL
             base.DrawExtraSelectionOverlays();
             GenDraw.DrawFieldEdges(GenAdj.CellsAdjacent8Way(this).ToList());
             GenDraw.DrawFieldEdges(new List<IntVec3> { OutputSlot }, Color.green);
-            Graphics.DrawMesh(MeshPool.plane10, WorkTableCell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), Quaternion.identity, GenDraw.InteractionCellMaterial, 0);
+            if (def.hasInteractionCell)
+                Graphics.DrawMesh(MeshPool.plane10, WorkTableCell.ToVector3ShiftedWithAltitude(AltitudeLayer.MetaOverlays), Quaternion.identity, GenDraw.InteractionCellMaterial, 0);
         }
 
         public override string GetInspectString()
         {
             var stringBuilder = new StringBuilder();
             stringBuilder.Append(base.GetInspectString());
-            stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotOutput.AsCompassDirection()));
+            stringBuilder.AppendLine("SALInspect_CurrentConfig".Translate(rotOutput));
             stringBuilder.AppendLine("SALInspect_WorkLeft".Translate(workLeft.ToStringWorkAmount()));
             stringBuilder.AppendLine("SALInspect_PlacementQueue".Translate(thingPlacementQueue.Count));
             if (!GetComp<CompPowerTrader>().PowerOn)

@@ -7,35 +7,34 @@ using Verse;
 
 namespace ProjectSAL
 {
-    public partial class Building_Crafter
+    public partial class Building_Assembler
     {
         public ModExtension_Assembler Extension => def.GetModExtension<ModExtension_Assembler>();
 
-        public IntVec3 OutputSlot => Position + GenAdj.CardinalDirections[0].RotatedBy(rotOutput);
+        public IntVec3 OutputSlot => GenAdj.CellsAdjacentCardinal (this).ElementAt (rotOutput);
+
+        public int OutputSlots => GenAdj.CellsAdjacentCardinal (this).Count ();
 
         public List<Thing> NextItems
         {
             get
             {
-                var things = new List<Thing>();
-                foreach (var c in GenAdj.CellsAdjacent8Way(this))
-                {
-                    foreach (var t in c.GetThingList(Map))
-                    {
-                        if (t.def.category == ThingCategory.Item)
-                            things.Add(t);
-                    }
-                }
+                var query = (
+                    from c in GenAdj.CellsAdjacent8Way (this)
+                    from t in c.GetThingList (Map)
+                    where t.def.category == ThingCategory.Item
+                    select t
+                );
 
-                return things;
+                return query.ToList ();
             }
         }
 
         public IntVec3 WorkTableCell => Position + GenAdj.CardinalDirections[Rotation.AsInt];
 
-        public Building_WorkTable WorkTable => Map.thingGrid.ThingsListAt(WorkTableCell).OfType<Building_WorkTable>().Where(t => t.InteractionCell == Position).TryRandomElement(out Building_WorkTable result) ? result : null;
+        public virtual Building_WorkTable WorkTable => this;
 
-        public BillStack BillStack => WorkTable?.BillStack;
+        public new BillStack BillStack => WorkTable.BillStack;
 
         protected bool OutputSlotOccupied => OutputSlot.GetFirstItem(Map) != null || OutputSlot.Impassable(Map);
 

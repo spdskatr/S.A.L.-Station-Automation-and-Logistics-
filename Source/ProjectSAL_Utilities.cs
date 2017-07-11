@@ -108,7 +108,7 @@ namespace ProjectSAL
         /// <summary>
         /// Provides warning for core driller + S.A.L. combination.
         /// </summary>
-        public static void CheckForCoreDrillerSetting(this Building_Crafter crafter)
+        public static void CheckForCoreDrillerSetting(this Building_Assembler crafter)
         {
             var tableExists = crafter.Map.thingGrid.ThingsListAt(crafter.WorkTableCell).OfType<Building>().TryRandomElement(out Building table);
             if (tableExists && !LoadedModManager.GetMod<SALMod>().settings.FixCoreDriller && table.def.defName == "CoreDrill")

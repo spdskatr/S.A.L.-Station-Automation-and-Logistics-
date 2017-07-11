@@ -8,7 +8,7 @@ using Verse.Sound;
 
 namespace ProjectSAL
 {
-    public partial class Building_Crafter
+    public partial class Building_Assembler
     {
         public bool CheckIfShouldActivate()
         {
