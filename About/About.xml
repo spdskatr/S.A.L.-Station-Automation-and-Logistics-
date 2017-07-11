@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-	<name>S.A.L.: Auto-crafters 2.0: Overloaded</name>
+	<name>S.A.L.: Auto-crafters 3.0</name>
 	<author>Spdskatr</author>
 	<targetVersion>0.17.1536</targetVersion>
-  <url>https://ludeon.com/forums/index.php?topic=31570.msg323564#msg323564</url>
-	<description>Project S.A.L.: Station Automation and Logistics\n\nS.A.L. is a RimWorld modding project that hopes to make most crafting jobs of the colony doable without colonist interaction. Now with much much more!</description>
+    <url>https://ludeon.com/forums/index.php?topic=31570.msg323564#msg323564</url>
+	<description>Project S.A.L.: Station Automation and Logistics\n\nS.A.L. is a RimWorld modding project that hopes to make most crafting jobs of the colony doable without colonist interaction. Now with much much more!\n\nOther Contributors: NotFood</description>
 </ModMetaData>
