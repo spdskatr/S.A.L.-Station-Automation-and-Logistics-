@@ -29,7 +29,7 @@ namespace ProjectSAL
             //Clear pawn relations
             p.relations.ClearAllRelations();
             //Set backstories
-            SetBackstoryAndSkills(ref p);
+            SetBackstoryAndSkills(p);
             //Pawn work-related stuffs
             for (int i = 0; i < 24; i++)
             {
@@ -41,7 +41,7 @@ namespace ProjectSAL
             //TestBackstoryAndSkills(p);
         }
 
-        private static void SetBackstoryAndSkills(ref Pawn p)
+        private static void SetBackstoryAndSkills(Pawn p)
         {
             if (BackstoryDatabase.TryGetWithIdentifier("ChildSpy95", out Backstory bs))
             {
@@ -63,23 +63,11 @@ namespace ProjectSAL
             p.story.traits.allTraits = new List<Trait>();
             //Reset cache
             typeof(Pawn_StoryTracker).GetField("cachedDisabledWorkTypes", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(p.story, null);
-        }
-        private static void TestBackstoryAndSkills(Pawn p)
-        {
-            var stringBuilder = new StringBuilder();
-            stringBuilder.AppendLine("Beginning story analysis.");
-            stringBuilder.AppendFormat("BACKSTORY: Childhood: {0} Adulthood: {1}\n", p.story.childhood, p.story.adulthood);
-            stringBuilder.AppendLine("TRAITS TEST");
-            foreach (var t in p.story.traits.allTraits)
+            //Reset cache for each skill
+            for (int i = 0; i < p.skills.skills.Count; i++)
             {
-                stringBuilder.Append(t);
+                cachedTotallyDisabled.SetValue(p.skills.skills[i], BoolUnknown.Unknown);
             }
-            stringBuilder.AppendLine("END TRAITS TEST");
-            foreach (var w in p.story.DisabledWorkTypes)
-            {
-                stringBuilder.AppendLine("Disabled WorkType: " + w);
-            }
-            Log.Message(stringBuilder.ToString());
         }
     }
 }

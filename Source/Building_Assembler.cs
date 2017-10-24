@@ -63,6 +63,7 @@ namespace ProjectSAL
         /// </summary>
         [Unsaved]
         bool cachedShouldActivate = true;
+        static readonly FieldInfo cachedTotallyDisabled = typeof(SkillRecord).GetField("cachedTotallyDisabled", BindingFlags.NonPublic | BindingFlags.Instance);
         #endregion
 
         #region Nutrition/Small volume calculations
@@ -119,7 +120,10 @@ namespace ProjectSAL
         {
             currentRecipe = b.recipe;
             ingredients = new List<_IngredientCount>();
-            (currentRecipe.ingredients ?? new List<IngredientCount>()).ForEach(ing => ingredients.Add(ing));//implicit cast
+            for (int i = 0; i < (currentRecipe.ingredients?.Count ?? 0); i++)
+            {
+                ingredients.Add(currentRecipe.ingredients[i]);
+            }
         }
 
         #region Products
@@ -135,7 +139,7 @@ namespace ProjectSAL
             {
                 thingPlacementQueue.Add(obj);
             }
-            FindBillAndChangeRepeatCount(BillStack, currentRecipe);
+            FindBillAndChangeRepeatCount(WorkTableBillStack, currentRecipe);
             ResetRecipe();
         }
 
@@ -195,6 +199,7 @@ namespace ProjectSAL
                 var unfinished = (UnfinishedThing)ThingMaker.MakeThing(currentRecipe.unfinishedThingDef, stuff);
                 unfinished.workLeft = workLeft;
                 unfinished.ingredients = thingRecord;
+                unfinished.Creator = buildingPawn;
                 GenPlace.TryPlaceThing(unfinished, Position, Map, ThingPlaceMode.Near);
             }
             thingRecord.Clear();
@@ -215,18 +220,19 @@ namespace ProjectSAL
         #region Reservation
         public void TryReserve(Thing thing = null)
         {
-			if (thing == null) 
-			{
+            if (thing == null)
+            {
                 if (WorkTable == null)
                 {
                     Log.Error("Tried to reserve workTable but workTable was null.");
                     return;
                 }
                 thing = WorkTable;
-			}
-			Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
+            }
+            if (thing == this) return;
+            Map.physicalInteractionReservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
             //Automatically checks if already reserved in core game code
-			if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(thing))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
+            if (Map.reservationManager.CanReserve(buildingPawn, new LocalTargetInfo(thing))) Map.reservationManager.Reserve(buildingPawn, new LocalTargetInfo(thing));
         }
         
         public void ReleaseAll()
@@ -235,5 +241,6 @@ namespace ProjectSAL
         	Map.reservationManager.ReleaseAllClaimedBy(buildingPawn);
         }
         #endregion
+
     }
 }
